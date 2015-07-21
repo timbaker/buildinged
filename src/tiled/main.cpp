@@ -26,9 +26,11 @@
 #include "tiledapplication.h"
 #include "zprogress.h"
 
-#include "texturemanager.h"
 #include "tilemetainfomgr.h"
+#ifdef VIRTUAL_TILESETS
+#include "texturemanager.h"
 #include "virtualtileset.h"
+#endif
 #include "BuildingEditor/buildingeditorwindow.h"
 #include "BuildingEditor/buildingtemplates.h"
 #include "BuildingEditor/buildingtiles.h"
@@ -174,8 +176,10 @@ static bool InitConfigFiles()
     configFiles += BuildingTilesMgr::instance()->txtName();
     configFiles += BuildingTMX::instance()->txtName();
     configFiles += FurnitureGroups::instance()->txtName();
+#ifdef VIRTUAL_TILESETS
     configFiles += TextureMgr::instance().txtName();
     configFiles += VirtualTilesetMgr::instance().txtName();
+#endif
     configFiles += QLatin1String("TileShapes.txt");
 
     foreach (QString configFile, configFiles) {
@@ -235,6 +239,7 @@ static bool InitConfigFiles()
         return false;
     }
 
+#ifdef VIRTUAL_TILESETS
     if (!TextureMgr::instance().readTxt()) {
         QMessageBox::critical(BuildingEditorWindow::instance(), tr("It's no good, Jim!"),
                               tr("Error while reading %1\n%2")
@@ -250,6 +255,7 @@ static bool InitConfigFiles()
                               .arg(VirtualTilesetMgr::instance().errorString()));
         return false;
     }
+#endif
 
     return true;
 }
@@ -308,8 +314,10 @@ int main(int argc, char *argv[])
     BuildingEditorWindow w;
     ZProgressManager::instance()->setMainWindow(&w);
 
+#ifdef VIRTUAL_TILESETS
     new TextureMgr;
     new VirtualTilesetMgr;
+#endif
 
     w.show();
 

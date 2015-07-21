@@ -63,9 +63,6 @@ SOURCES += colorbutton.cpp \
     addtilesetsdialog.cpp \
     mapimagemanager.cpp \
     resizehelper.cpp \
-    virtualtileset.cpp \
-    texturemanager.cpp \
-    pixelbuffer.cpp \
     textureunpacker.cpp \
     tmxmapwriter.cpp \
     main.cpp \
@@ -89,9 +86,6 @@ HEADERS += colorbutton.h \
     addtilesetsdialog.h \
     mapimagemanager.h \
     resizehelper.h \
-    virtualtileset.h \
-    texturemanager.h \
-    pixelbuffer.h \
     textureunpacker.h \
     tmxmapwriter.h \
     commandlineparser.h \

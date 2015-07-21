@@ -27,7 +27,9 @@
 #include <QImage>
 #ifdef ZOMBOID
 #include "preferences.h"
+#ifdef VIRTUAL_TILESETS
 #include "virtualtileset.h"
+#endif
 #include "tile.h"
 #include <QDebug>
 #include <QDir>
@@ -91,8 +93,10 @@ TilesetManager::TilesetManager():
 
     mReloadTilesetsOnChange = Preferences::instance()->reloadTilesetsOnChange();
 
+#ifdef VIRTUAL_TILESETS
     // Changing this setting doesn't take effect until TileZed is restarted.
     mUseVirtualTilesets = Preferences::instance()->useVirtualTilesets();
+#endif
 #endif
 
     connect(mWatcher, SIGNAL(fileChanged(QString)),
@@ -254,13 +258,16 @@ void TilesetManager::fileChangedTimeout()
     foreach (Tileset *tileset, mTilesetImageCache->mTilesets) {
         QString fileName = tileset->imageSource();
         if (mChangedFiles.contains(fileName)) {
+#ifdef VIRTUAL_TILESETS
             VirtualTileset *vts = useVirtualTilesets()
                     ? VirtualTilesetMgr::instance().tilesetFromPath(fileName)
                     : 0;
             if (vts) {
                 tileset->loadFromImage(vts->image(), fileName);
                 tileset->setMissing(false);
-            } else if (QImageReader(fileName).size().isValid()) {
+            } else
+#endif
+            if (QImageReader(fileName).size().isValid()) {
                 tileset->loadFromImage(QImage(fileName), fileName);
                 tileset->setMissing(false);
             } else {
@@ -285,6 +292,7 @@ void TilesetManager::fileChangedTimeout()
         }
     }
 
+#ifdef VIRTUAL_TILESETS
     // Perhaps a used virtual tileset didn't exist and now it does (fringe case to be sure).
     if (useVirtualTilesets()) {
         foreach (Tileset *ts, tilesets()) {
@@ -301,6 +309,7 @@ void TilesetManager::fileChangedTimeout()
             }
         }
     }
+#endif // VIRTUAL_TILESETS
 #else
 
     foreach (Tileset *tileset, tilesets()) {
@@ -324,6 +333,7 @@ void TilesetManager::fileChangedTimeout()
 #ifdef ZOMBOID
 void TilesetManager::imageLoaded(QImage *image, QImage *image2x, Tileset *tileset)
 {
+#ifdef VIRTUAL_TILESETS
     // Check if the tileset belongs to TextureMgr.
     // If so, the image is a "flat" texture, not an old iso tileset image.
     if (mTextureMgrTilesets.contains(tileset)) {
@@ -331,6 +341,7 @@ void TilesetManager::imageLoaded(QImage *image, QImage *image2x, Tileset *tilese
         delete image;
         return;
     }
+#endif
 
     Q_ASSERT(mTilesetImageCache->mTilesets.contains(tileset));
 
@@ -366,11 +377,13 @@ void TilesetManager::imageLoaded(QImage *image, QImage *image2x, Tileset *tilese
     delete image;
 }
 
+#ifdef VIRTUAL_TILESETS
 void TilesetManager::virtualTilesetChanged(VirtualTileset *vts)
 {
     QString imageSource = VirtualTilesetMgr::instance().imageSource(vts);
     fileChanged(imageSource);
 }
+#endif
 
 // If imageSource is in the Tiles directory, make it relative to Tiles2x directory.
 static bool resolveImageSource(QString &imageSource)
@@ -409,8 +422,8 @@ void TilesetManager::loadTileset(Tileset *tileset, const QString &imageSource_)
     if (QDir(imageSource_).isRelative())
         return;
 
-#if 1
     QString imageSource = imageSource_;
+#ifdef VIRTUAL_TILESETS
     if (useVirtualTilesets()) {
         // When reading a TMX, virtual tileset image paths won't be canonical,
         // since they're saved relative to the TMX's directory.
@@ -419,9 +432,11 @@ void TilesetManager::loadTileset(Tileset *tileset, const QString &imageSource_)
 #endif
 
     if (!tileset->isLoaded() /*&& !tileset->isMissing()*/) {
+#ifdef VIRTUAL_TILESETS
         VirtualTileset *vts = useVirtualTilesets()
                 ? VirtualTilesetMgr::instance().tilesetFromPath(imageSource)
                 : 0;
+#endif
         if (Tileset *cached = mTilesetImageCache->findMatch(tileset, imageSource)) {
             // If it !isLoaded(), a thread is reading the image.
             // FIXME: 1) load TMX with tilesets from not-TilesDirectory -> no 2x images loaded
@@ -434,11 +449,13 @@ void TilesetManager::loadTileset(Tileset *tileset, const QString &imageSource_)
             } else {
                 changeTilesetSource(tileset, imageSource, false);
             }
+#ifdef VIRTUAL_TILESETS
         } else if (vts) {
             tileset->loadFromImage(vts->image(), imageSource);
             tileset->setMissing(false);
             mTilesetImageCache->addTileset(tileset)->setLoaded(true);
             emit tilesetChanged(tileset);
+#endif
         } else if (QImageReader(imageSource).size().isValid()) {
             QString imageSource2x = imageSource;
             if (resolveImageSource(imageSource2x)) {
@@ -464,6 +481,7 @@ void TilesetManager::loadTileset(Tileset *tileset, const QString &imageSource_)
     }
 }
 
+#ifdef VIRTUAL_TILESETS
 #include <QPainter>
 void TilesetManager::loadTextureTileset(Tileset *tileset, const QString &imageSource)
 {
@@ -488,6 +506,7 @@ void TilesetManager::loadTextureTileset(Tileset *tileset, const QString &imageSo
             tileset->tileAt(i)->setImage(tileImg);
     }
 }
+#endif // VIRTUAL_TILESETS
 
 void TilesetManager::waitForTilesets(const QList<Tileset *> &tilesets)
 {

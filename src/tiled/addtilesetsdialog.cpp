@@ -21,7 +21,9 @@
 #include "ui_addtilesetsdialog.h"
 
 #include "preferences.h"
+#ifdef VIRTUAL_TILESETS
 #include "virtualtileset.h"
+#endif
 
 #include <QDir>
 #include <QFileDialog>
@@ -89,6 +91,7 @@ QStringList AddTilesetsDialog::fileNames()
             ret += QFileInfo(fileName).canonicalFilePath();
         }
     }
+#ifdef VIRTUAL_TILESETS
     for (int i = 0; i < ui->virtualList->count(); i++) {
         QListWidgetItem *item = ui->virtualList->item(i);
         if (item->checkState() == Qt::Checked) {
@@ -96,6 +99,7 @@ QStringList AddTilesetsDialog::fileNames()
                 ret += VirtualTilesetMgr::instance().imageSource(vts);
         }
     }
+#endif
     return ret;
 }
 
@@ -138,7 +142,7 @@ void AddTilesetsDialog::setFilesList()
 void AddTilesetsDialog::setVirtualsList()
 {
     ui->virtualList->clear();
-
+#ifdef VIRTUAL_TILESETS
     foreach (VirtualTileset *vts, VirtualTilesetMgr::instance().tilesets()) {
         if (mIgnoreIsPaths) {
             bool ignore = false;
@@ -160,6 +164,7 @@ void AddTilesetsDialog::setVirtualsList()
         item->setCheckState(Qt::Unchecked);
         ui->virtualList->addItem(item);
     }
+#endif
 }
 
 void AddTilesetsDialog::browse()

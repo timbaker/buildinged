@@ -22,7 +22,9 @@
 //#include "mainwindow.h"
 #include "preferences.h"
 #include "tilesetmanager.h"
+#ifdef VIRTUAL_TILESETS
 #include "virtualtileset.h"
+#endif
 
 #include "tile.h"
 #include "tileset.h"
@@ -65,11 +67,13 @@ void TileMetaInfoMgr::changeTilesDirectory(const QString &path, const QString &p
     foreach (Tileset *ts, tilesets()) {
         if (ts->isMissing())
             continue; // keep the relative path
+#ifdef VIRTUAL_TILESETS
         if (TilesetManager::instance()->useVirtualTilesets() &&
                 VirtualTilesetMgr::instance().tilesetFromPath(ts->imageSource())) {
             virtualTilesets += ts;
             continue;
         }
+#endif
         QString relativePath = tilesDir.relativeFilePath(ts->imageSource());
         if (!QDir::isRelativePath(relativePath))
             continue;
@@ -87,10 +91,12 @@ void TileMetaInfoMgr::changeTilesDirectory(const QString &path, const QString &p
             TilesetManager::instance()->changeTilesetSource(ts, relativePath, true);
         }
     }
+#ifdef VIRTUAL_TILESETS
     foreach (Tileset *ts, virtualTilesets) {
         if (VirtualTileset *vts = VirtualTilesetMgr::instance().tileset(ts->name()))
             ts->setImageSource(VirtualTilesetMgr::instance().imageSource(vts));
     }
+#endif
     loadTilesets();
 }
 
@@ -378,11 +384,13 @@ bool TileMetaInfoMgr::loadTilesetImage(Tileset *ts, const QString &source)
 {
 #if 1
     QString canonical = source;
+#ifdef VIRTUAL_TILESETS
     if (TilesetManager::instance()->useVirtualTilesets() &&
             VirtualTilesetMgr::instance().resolveImageSource(canonical)) {
         TilesetManager::instance()->loadTileset(ts, canonical);
         return true;
     }
+#endif
     QImageReader reader(source);
     if (reader.size().isValid()) {
         ts->loadFromNothing(reader.size(), source);
@@ -447,11 +455,13 @@ void TileMetaInfoMgr::loadTilesets(const QList<Tileset *> &tilesets)
                         // relative to Tiles directory, plus .png.
                         + ts->imageSource();
             }
+#ifdef VIRTUAL_TILESETS
             if (TilesetManager::instance()->useVirtualTilesets() &&
                     VirtualTilesetMgr::instance().resolveImageSource(source)) {
                 TilesetManager::instance()->loadTileset(ts, source);
                 continue;
             }
+#endif
             QImageReader reader(source);
             if (reader.size().isValid()) {
                 ts->loadFromNothing(reader.size(), ts->imageSource()); // update the size now

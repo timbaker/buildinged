@@ -30,7 +30,9 @@
 #include "tilemetainfomgr.h"
 #include "tilesetmanager.h"
 #include "utils.h"
+#ifdef VIRTUAL_TILESETS
 #include "virtualtileset.h"
+#endif
 #include "zoomable.h"
 
 #include "map.h"

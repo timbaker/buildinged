@@ -54,13 +54,8 @@ void BuildingPreferences::deleteInstance()
 BuildingPreferences::BuildingPreferences(QObject *parent) :
     QObject(parent)
 {
-#ifdef BUILDINGED
-    mMapsDirectory = mSettings.value(QLatin1String(KEY_MAPS_DIRECTORY),
-                                     QString()).toString();
-#else
     mMapsDirectory = mSettings.value(QLatin1String(KEY_MAPS_DIRECTORY),
                                      Tiled::Internal::Preferences::instance()->mapsDirectory()).toString();
-#endif
     mShowGrid = mSettings.value(QLatin1String(KEY_SHOW_GRID), true).toBool();
     mGridColor = mSettings.value(QLatin1String(KEY_GRID_COLOR), QColor(Qt::black).name()).toString();
     mHighlightFloor = mSettings.value(QLatin1String(KEY_HIGHLIGHT_FLOOR),

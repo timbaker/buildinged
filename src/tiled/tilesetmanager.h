@@ -196,10 +196,12 @@ public:
     void loadTextureTileset(Tileset *tileset, const QString &imageSource);
     void waitForTilesets(const QList<Tileset *> &tilesets);
 
+#ifdef VIRTUAL_TILESETS
     void textureTilesetAdded(Tileset *ts) { mTextureMgrTilesets.insert(ts); }
     void textureTilesetRemoved(Tileset *ts) { mTextureMgrTilesets.remove(ts); }
 
     bool useVirtualTilesets() const { return mUseVirtualTilesets; }
+#endif
 #endif
 
 signals:
@@ -221,7 +223,9 @@ private slots:
 #ifdef ZOMBOID
     void imageLoaded(QImage *image, QImage *image2x, Tiled::Tileset *tileset);
 
+#ifdef VIRTUAL_TILESETS
     void virtualTilesetChanged(VirtualTileset *vts);
+#endif
 #endif
 
 private:
@@ -252,8 +256,10 @@ private:
     QVector<TilesetImageReaderWorker*> mImageReaderWorkers;
     int mNextThreadForJob;
 
+#ifdef VIRTUAL_TILESETS
     QSet<Tileset*> mTextureMgrTilesets;
     bool mUseVirtualTilesets;
+#endif
 #endif
 
 #ifdef ZOMBOID
