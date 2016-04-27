@@ -281,13 +281,25 @@ void MapWriterPrivate::writeTileset(QXmlStreamWriter &w, const Tileset *tileset,
         if (transColor.isValid())
             w.writeAttribute(QLatin1String("trans"), transColor.name().mid(1));
 
+#ifdef ZOMBOID
+        if (!tileset->imageSource2x().isEmpty()) {
+            if (tileset->imageWidth() > 0)
+                w.writeAttribute(QLatin1String("width"),
+                                 QString::number(tileset->imageWidth() / 2));
+            if (tileset->imageHeight() > 0)
+                w.writeAttribute(QLatin1String("height"),
+                                 QString::number(tileset->imageHeight() / 2));
+        } else {
+#endif
         if (tileset->imageWidth() > 0)
             w.writeAttribute(QLatin1String("width"),
                              QString::number(tileset->imageWidth()));
         if (tileset->imageHeight() > 0)
             w.writeAttribute(QLatin1String("height"),
                              QString::number(tileset->imageHeight()));
-
+#ifdef ZOMBOID
+        }
+#endif
         w.writeEndElement();
     }
 
@@ -657,6 +669,17 @@ void MapWriterPrivate::writeBmpImage(QXmlStreamWriter &w,
     QList<QRgb> colors = bmp.colors();
     if (colors.isEmpty())
         return;
+
+    struct ColorCompare {
+        bool operator()(const QRgb& a, const QRgb& b) const {
+            if (qRed(a) < qRed(b)) return true;
+            if (qRed(a) > qRed(b)) return false;
+            if (qGreen(a) < qGreen(b)) return true;
+            if (qGreen(a) > qGreen(b)) return false;
+            return qBlue(a) < qBlue(b);
+        }
+    };
+    qSort(colors.begin(), colors.end(), ColorCompare());
 
     w.writeStartElement(QLatin1String("bmp-image"));
     w.writeAttribute(QLatin1String("index"), QString::number(index));

@@ -159,17 +159,18 @@ public:
 
         struct WallInfo {
             WallInfo() :
-                entry(0), trim(0), furniture(0)
+                entry(0), trim(0), furniture(0), furnitureBldgTile(0)
             {}
             BuildingTileEntry *entry;
             BuildingTileEntry *trim;
             FurnitureTile *furniture;
+            BuildingTile *furnitureBldgTile;
         } mWallN, mWallW;
 
         void SetWallN(BuildingTileEntry *tile);
         void SetWallW(BuildingTileEntry *tile);
-        void SetWallN(FurnitureTile *ftile);
-        void SetWallW(FurnitureTile *ftile);
+        void SetWallN(FurnitureTile *ftile, BuildingTile *btile);
+        void SetWallW(FurnitureTile *ftile, BuildingTile *btile);
         void SetWallTrimN(BuildingTileEntry *tile);
         void SetWallTrimW(BuildingTileEntry *tile);
 
@@ -189,7 +190,7 @@ public:
         void ReplaceRoofCap(BuildingTileEntry *tile, int offset = 0);
         void ReplaceRoofTop(BuildingTileEntry *tile, int offset);
         void ReplaceFloorGrime(BuildingTileEntry *grimeTile);
-        void ReplaceWallGrime(BuildingTileEntry *grimeTile);
+        void ReplaceWallGrime(BuildingTileEntry *grimeTile, const QString &userTileWalls, const QString &userTileWalls2);
         void ReplaceWallTrim();
 
         int getWallOffset();
@@ -329,5 +330,31 @@ private:
 };
 
 } // namespace BuildingEditor
+
+namespace Tiled {
+namespace Internal {
+class FileSystemWatcher;
+class TileDefFile;
+
+class TileDefWatcher : public QObject
+{
+        Q_OBJECT
+public:
+    TileDefWatcher();
+
+    void check();
+
+public slots:
+    void fileChanged(const QString &path);
+
+public:
+    Tiled::Internal::FileSystemWatcher *mWatcher;
+    Tiled::Internal::TileDefFile *mTileDefFile;
+    bool tileDefFileChecked;
+    bool watching;
+};
+
+}
+}
 
 #endif // BUILDINGFLOOR_H

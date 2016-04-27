@@ -68,7 +68,8 @@ SOURCES += colorbutton.cpp \
     main.cpp \
     commandlineparser.cpp \
     languagemanager.cpp \
-    tiledapplication.cpp
+    tiledapplication.cpp \
+    tiledeffile.cpp
 
 HEADERS += colorbutton.h \
     filesystemwatcher.h \
@@ -90,7 +91,8 @@ HEADERS += colorbutton.h \
     tmxmapwriter.h \
     commandlineparser.h \
     languagemanager.h \
-    tiledapplication.h
+    tiledapplication.h \
+    tiledeffile.h
 
 HEADERS += BuildingEditor/buildingeditorwindow.h \
     BuildingEditor/simplefile.h \
@@ -274,10 +276,8 @@ isEmpty(INSTALL_ONLY_BUILD) {
 configTxtFiles.path = $${CONFIG_PREFIX}
 configTxtFiles.files = \
     $${top_srcdir}/LuaTools.txt \
-    $${top_srcdir}/Textures.txt \
     $${top_srcdir}/TileProperties.txt \
-    $${top_srcdir}/Tilesets.txt \
-    $${top_srcdir}/TileShapes.txt
+    $${top_srcdir}/Tilesets.txt
 INSTALLS += configTxtFiles
 
 buildingEdTxt.path = $${CONFIG_PREFIX}

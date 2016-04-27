@@ -34,6 +34,7 @@
 #include <QMenu>
 #include <QMimeData>
 #include <QPainter>
+#include <QScrollBar>
 #include <QStyleOption>
 
 using namespace BuildingEditor;
@@ -140,7 +141,10 @@ void FurnitureTileDelegate::paint(QPainter *painter,
                     QPointF p1 = tileToPixelCoords(mapWidth, mapHeight, x, y) + tileMargins + r.topLeft();
                     QRect r((p1 - QPointF(tileWidth/2, imageHeight - tileHeight)).toPoint(),
                             QSize(tileWidth, imageHeight));
-                    painter->drawImage(r, tile->image());
+                    if (tile->image().isNull())
+                        tile = TilesetManager::instance()->missingTile();
+                    const QMargins margins = tile->drawMargins(scale);
+                    painter->drawImage(r.adjusted(margins.left(), margins.top(), -margins.right(), -margins.bottom()), tile->image());
                 }
             }
         }
@@ -450,6 +454,7 @@ void FurnitureView::init()
 {
     setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
     setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    verticalScrollBar()->setSingleStep(32);
     setItemDelegate(mDelegate);
     setShowGrid(false);
 

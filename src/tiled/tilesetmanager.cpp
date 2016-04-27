@@ -27,9 +27,6 @@
 #include <QImage>
 #ifdef ZOMBOID
 #include "preferences.h"
-#ifdef VIRTUAL_TILESETS
-#include "virtualtileset.h"
-#endif
 #include "tile.h"
 #include <QDebug>
 #include <QDir>
@@ -56,7 +53,8 @@ TilesetManager::TilesetManager():
     mMissingTileset = new Tileset(QLatin1String("missing"), TILE_WIDTH, TILE_HEIGHT);
     mMissingTileset->setTransparentColor(Qt::white);
     mMissingTileset->setMissing(true);
-    QString fileName = QLatin1String(":/BuildingEditor/icons/missing-tile.png");
+//    QString fileName = QLatin1String(":/BuildingEditor/icons/missing-tile.png");
+    QString fileName = QLatin1String(":/images/missing-tile.png");
     if (!mMissingTileset->loadFromImage(QImage(fileName), fileName)) {
         QImage image(TILE_WIDTH, TILE_HEIGHT, QImage::Format_ARGB32);
         image.fill(Qt::red);
@@ -86,17 +84,12 @@ TilesetManager::TilesetManager():
         mImageReaderThreads[i] = new InterruptibleThread;
         mImageReaderWorkers[i] = new TilesetImageReaderWorker(i, mImageReaderThreads[i]);
         mImageReaderWorkers[i]->moveToThread(mImageReaderThreads[i]);
-        connect(mImageReaderWorkers[i], SIGNAL(imageLoaded(QImage*,QImage*,Tiled::Tileset*)),
-                SLOT(imageLoaded(QImage*,QImage*,Tiled::Tileset*)));
+        connect(mImageReaderWorkers[i], SIGNAL(imageLoaded(QImage*,Tiled::Tileset*)),
+                SLOT(imageLoaded(QImage*,Tiled::Tileset*)));
         mImageReaderThreads[i]->start();
     }
 
     mReloadTilesetsOnChange = Preferences::instance()->reloadTilesetsOnChange();
-
-#ifdef VIRTUAL_TILESETS
-    // Changing this setting doesn't take effect until TileZed is restarted.
-    mUseVirtualTilesets = Preferences::instance()->useVirtualTilesets();
-#endif
 #endif
 
     connect(mWatcher, SIGNAL(fileChanged(QString)),
@@ -252,28 +245,22 @@ void TilesetManager::fileChanged(const QString &path)
     mChangedFilesTimer.start();
 }
 
+extern bool resolveImageSource(QString &imageSource);
+
 void TilesetManager::fileChangedTimeout()
 {
 #ifdef ZOMBOID
+    qDebug() << "fileChangedTimeout " << mChangedFiles;
     foreach (Tileset *tileset, mTilesetImageCache->mTilesets) {
-        QString fileName = tileset->imageSource();
+        QString fileName = tileset->imageSource2x().isEmpty() ? tileset->imageSource() : tileset->imageSource2x();
         if (mChangedFiles.contains(fileName)) {
-#ifdef VIRTUAL_TILESETS
-            VirtualTileset *vts = useVirtualTilesets()
-                    ? VirtualTilesetMgr::instance().tilesetFromPath(fileName)
-                    : 0;
-            if (vts) {
-                tileset->loadFromImage(vts->image(), fileName);
-                tileset->setMissing(false);
-            } else
-#endif
             if (QImageReader(fileName).size().isValid()) {
-                tileset->loadFromImage(QImage(fileName), fileName);
+                tileset->loadFromImage(QImage(fileName), tileset->imageSource());
                 tileset->setMissing(false);
             } else {
                 if (tileset->tileHeight() == mMissingTile->width() && tileset->tileWidth() == mMissingTile->height()) {
                     for (int i = 0; i < tileset->tileCount(); i++)
-                        tileset->tileAt(i)->setImage(mMissingTile->image());
+                        tileset->tileAt(i)->setImage(mMissingTile);
                 }
                 tileset->setMissing(true);
             }
@@ -281,7 +268,8 @@ void TilesetManager::fileChangedTimeout()
     }
     foreach (Tileset *tileset, tilesets()) {
         QString fileName = tileset->imageSource();
-        if (mChangedFiles.contains(fileName)) {
+        QString fileName2 = tileset->imageSource2x().isEmpty() ? tileset->imageSource() : tileset->imageSource2x();
+        if (mChangedFiles.contains(fileName2)) {
             if (Tileset *cached = mTilesetImageCache->findMatch(tileset, fileName)) {
                 if (tileset->loadFromCache(cached)) {
                     tileset->setMissing(cached->isMissing());
@@ -291,25 +279,6 @@ void TilesetManager::fileChangedTimeout()
             }
         }
     }
-
-#ifdef VIRTUAL_TILESETS
-    // Perhaps a used virtual tileset didn't exist and now it does (fringe case to be sure).
-    if (useVirtualTilesets()) {
-        foreach (Tileset *ts, tilesets()) {
-            if (ts->isMissing()) {
-                QString imageSource = ts->imageSource();
-                if (VirtualTileset *vts = VirtualTilesetMgr::instance().tilesetFromPath(imageSource)) {
-                    VirtualTilesetMgr::instance().resolveImageSource(imageSource);
-                    ts->loadFromImage(vts->image(), imageSource);
-                    ts->setMissing(false);
-                    if (mTilesetImageCache->findMatch(ts, imageSource) == 0)
-                        mTilesetImageCache->addTileset(ts)->setLoaded(true);
-                    emit tilesetChanged(ts);
-                }
-            }
-        }
-    }
-#endif // VIRTUAL_TILESETS
 #else
 
     foreach (Tileset *tileset, tilesets()) {
@@ -331,33 +300,15 @@ void TilesetManager::fileChangedTimeout()
 }
 
 #ifdef ZOMBOID
-void TilesetManager::imageLoaded(QImage *image, QImage *image2x, Tileset *tileset)
+void TilesetManager::imageLoaded(QImage *image, Tileset *tileset)
 {
-#ifdef VIRTUAL_TILESETS
-    // Check if the tileset belongs to TextureMgr.
-    // If so, the image is a "flat" texture, not an old iso tileset image.
-    if (mTextureMgrTilesets.contains(tileset)) {
-        emit textureImageLoaded(image, tileset);
-        delete image;
-        return;
-    }
-#endif
-
     Q_ASSERT(mTilesetImageCache->mTilesets.contains(tileset));
 
     // This updates a tileset in the cache.
     tileset->loadFromImage(*image, tileset->imageSource());
 
-    if (image2x != 0) {
-        tileset->loadImage2x(*image2x);
-        delete image2x;
-    } else {
-        qDeleteAll(tileset->mTiles2x);
-        tileset->mTiles2x.clear();
-    }
-
     // Watch the image file for changes.
-    mWatcher->addPath(tileset->imageSource());
+    mWatcher->addPath(tileset->imageSource2x().isEmpty() ? tileset->imageSource() : tileset->imageSource2x());
 
     // Now update every tileset using this image.
     foreach (Tileset *candidate, tilesets()) {
@@ -377,16 +328,8 @@ void TilesetManager::imageLoaded(QImage *image, QImage *image2x, Tileset *tilese
     delete image;
 }
 
-#ifdef VIRTUAL_TILESETS
-void TilesetManager::virtualTilesetChanged(VirtualTileset *vts)
-{
-    QString imageSource = VirtualTilesetMgr::instance().imageSource(vts);
-    fileChanged(imageSource);
-}
-#endif
-
 // If imageSource is in the Tiles directory, make it relative to Tiles2x directory.
-static bool resolveImageSource(QString &imageSource)
+bool resolveImageSource(QString &imageSource)
 {
     QString tiles2xDir = Preferences::instance()->tiles2xDirectory();
     if (tiles2xDir.isEmpty())
@@ -408,7 +351,7 @@ static bool resolveImageSource(QString &imageSource)
     if (QDir::cleanPath(tilesDir) == QDir::cleanPath(info.absolutePath())) {
         QString imageSource2x = QDir(tiles2xDir).filePath(info.fileName());
         if (QFileInfo(imageSource2x).exists()) {
-            imageSource = imageSource2x;
+            imageSource = QFileInfo(imageSource2x).canonicalFilePath();
             return true;
         }
     }
@@ -422,21 +365,12 @@ void TilesetManager::loadTileset(Tileset *tileset, const QString &imageSource_)
     if (QDir(imageSource_).isRelative())
         return;
 
+#if 1
     QString imageSource = imageSource_;
-#ifdef VIRTUAL_TILESETS
-    if (useVirtualTilesets()) {
-        // When reading a TMX, virtual tileset image paths won't be canonical,
-        // since they're saved relative to the TMX's directory.
-        VirtualTilesetMgr::instance().resolveImageSource(imageSource);
-    }
 #endif
 
     if (!tileset->isLoaded() /*&& !tileset->isMissing()*/) {
-#ifdef VIRTUAL_TILESETS
-        VirtualTileset *vts = useVirtualTilesets()
-                ? VirtualTilesetMgr::instance().tilesetFromPath(imageSource)
-                : 0;
-#endif
+        QString imageSource2x = imageSource;
         if (Tileset *cached = mTilesetImageCache->findMatch(tileset, imageSource)) {
             // If it !isLoaded(), a thread is reading the image.
             // FIXME: 1) load TMX with tilesets from not-TilesDirectory -> no 2x images loaded
@@ -448,65 +382,46 @@ void TilesetManager::loadTileset(Tileset *tileset, const QString &imageSource_)
                 emit tilesetChanged(tileset);
             } else {
                 changeTilesetSource(tileset, imageSource, false);
+                tileset->setImageSource2x(cached->imageSource2x());
             }
-#ifdef VIRTUAL_TILESETS
-        } else if (vts) {
-            tileset->loadFromImage(vts->image(), imageSource);
-            tileset->setMissing(false);
-            mTilesetImageCache->addTileset(tileset)->setLoaded(true);
-            emit tilesetChanged(tileset);
-#endif
-        } else if (QImageReader(imageSource).size().isValid()) {
-            QString imageSource2x = imageSource;
-            if (resolveImageSource(imageSource2x)) {
-                qDebug() << "2x YES " << imageSource;
-            } else {
-                qDebug() << "2x NO " << imageSource;
-                imageSource2x.clear();
-            }
+        } else if (resolveImageSource(imageSource2x) && QImageReader(imageSource2x).size().isValid()) {
+            qDebug() << "2x YES " << imageSource;
             changeTilesetSource(tileset, imageSource, false);
+            tileset->setImageSource2x(imageSource2x);
             cached = mTilesetImageCache->addTileset(tileset);
+#if QT_POINTER_SIZE == 8
             QMetaObject::invokeMethod(mImageReaderWorkers[mNextThreadForJob],
                                       "addJob", Qt::QueuedConnection,
-                                      Q_ARG(Tileset*,cached),
-                                      Q_ARG(QString,imageSource2x));
+                                      Q_ARG(Tileset*,cached));
             mNextThreadForJob = (mNextThreadForJob + 1) % mImageReaderWorkers.size();
+#else
+            QImage *image = new QImage(tileset->imageSource2x());
+            imageLoaded(image, cached);
+#endif
+        } else if (QImageReader(imageSource).size().isValid()) {
+            qDebug() << "2x NO " << imageSource;
+            changeTilesetSource(tileset, imageSource, false);
+            tileset->setImageSource2x(QString());
+            cached = mTilesetImageCache->addTileset(tileset);
+#if QT_POINTER_SIZE == 8
+            QMetaObject::invokeMethod(mImageReaderWorkers[mNextThreadForJob],
+                                      "addJob", Qt::QueuedConnection,
+                                      Q_ARG(Tileset*,cached));
+            mNextThreadForJob = (mNextThreadForJob + 1) % mImageReaderWorkers.size();
+#else
+            QImage *image = new QImage(tileset->imageSource());
+            imageLoaded(image, cached);
+#endif
         } else {
             if (tileset->tileHeight() == mMissingTile->height() && tileset->tileWidth() == mMissingTile->width()) {
                 for (int i = 0; i < tileset->tileCount(); i++)
-                    tileset->tileAt(i)->setImage(mMissingTile->image());
+                    tileset->tileAt(i)->setImage(mMissingTile);
             }
             changeTilesetSource(tileset, imageSource, true);
+            tileset->setImageSource2x(QString());
         }
     }
 }
-
-#ifdef VIRTUAL_TILESETS
-#include <QPainter>
-void TilesetManager::loadTextureTileset(Tileset *tileset, const QString &imageSource)
-{
-    Q_ASSERT(mTextureMgrTilesets.contains(tileset));
-    tileset->setImageSource(imageSource);
-    if (QImageReader(imageSource).size().isValid()) {
-        tileset->setMissing(false);
-        QMetaObject::invokeMethod(mImageReaderWorkers[mNextThreadForJob],
-                                  "addJob", Qt::QueuedConnection,
-                                  Q_ARG(Tileset*,tileset));
-        mNextThreadForJob = (mNextThreadForJob + 1) % mImageReaderWorkers.size();
-    } else {
-        tileset->setMissing(true);
-        tileset->setLoaded(true);
-        QImage tileImg(tileset->tileWidth(), tileset->tileHeight(), QImage::Format_ARGB32);
-        tileImg.fill(Qt::transparent);
-        QPainter p(&tileImg);
-        for (int y = 0; y < tileImg.height(); y += mMissingTile->height())
-            for (int x = 0; x < tileImg.width(); x += mMissingTile->width())
-                p.drawImage(x, y, mMissingTile->image());
-        for (int i = 0; i < tileset->tileCount(); i++)
-            tileset->tileAt(i)->setImage(tileImg);
-    }
-}
-#endif // VIRTUAL_TILESETS
 
 void TilesetManager::waitForTilesets(const QList<Tileset *> &tilesets)
 {
@@ -517,18 +432,11 @@ void TilesetManager::waitForTilesets(const QList<Tileset *> &tilesets)
         if (ts->isMissing())
             continue;
         // There may be a thread already reading or about to read this image.
-        QImage *image = new QImage(ts->imageSource());
-        QImage *image2x = 0;
-        QString image2xFileName = ts->imageSource();
-        if (resolveImageSource(image2xFileName)) {
-            qDebug() << "2x YES " << ts->imageSource();
-            image2x = new QImage(image2xFileName);
-        } else
-            qDebug() << "2x NO " << ts->imageSource();
+        QImage *image = new QImage(ts->imageSource2x().isEmpty() ? ts->imageSource() : ts->imageSource2x());
         Tileset *cached = mTilesetImageCache->findMatch(ts, ts->imageSource());
         Q_ASSERT(cached != 0 && !cached->isLoaded());
         if (cached) {
-            imageLoaded(image, image2x, cached); // deletes image
+            imageLoaded(image, cached); // deletes image
         }
     }
 }
@@ -857,23 +765,20 @@ void TilesetImageReaderWorker::work()
 
         Job job = mJobs.takeAt(0);
 
-        QImage *image = new QImage(job.tileset->imageSource());
-        QImage *image2x = 0;
-        if (!job.imageSource2x.isEmpty())
-            image2x = new QImage(job.imageSource2x);
+        QImage *image = new QImage(job.tileset->imageSource2x().isEmpty() ? job.tileset->imageSource() : job.tileset->imageSource2x());
 #if 0
         Sleep::msleep(500);
 //        qDebug() << "TilesetImageReaderThread #" << mID << "loaded" << job.tileset->imageSource();
 #endif
-        emit imageLoaded(image, image2x, job.tileset);
+        emit imageLoaded(image, job.tileset);
     }
 }
 
-void TilesetImageReaderWorker::addJob(Tileset *tileset, const QString &imageSource2x)
+void TilesetImageReaderWorker::addJob(Tileset *tileset)
 {
     IN_WORKER_THREAD
 
-    mJobs += Job(tileset, imageSource2x);
+    mJobs += Job(tileset);
     scheduleWork();
 }
 #endif // ZOMBOID

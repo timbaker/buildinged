@@ -19,6 +19,7 @@
 
 #include "tile.h"
 #include "tileset.h"
+#include "tilesetmanager.h"
 #include "zoomable.h"
 
 #include <QApplication>
@@ -28,6 +29,7 @@
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QScrollBar>
 #include <QStyleOption>
 #include <QToolTip>
 
@@ -96,6 +98,8 @@ void TileDelegate::paint(QPainter *painter,
 #endif
         return;
     }
+    if (m->showEmptyTilesAsMissing() && tile->image().isNull())
+        tile = TilesetManager::instance()->missingTile();
 
     const int extra = 2;
 
@@ -134,8 +138,8 @@ void TileDelegate::paint(QPainter *painter,
     }
 
     // Draw the tile image
-    const QVariant display = index.model()->data(index, Qt::DisplayRole);
-    const QPixmap tileImage = display.value<QPixmap>();
+//    const QVariant display = index.model()->data(index, Qt::DisplayRole);
+//    const QPixmap tileImage = display.value<QPixmap>();
     const int tileWidth = tile->tileset()->tileWidth() * mView->zoomable()->scale();
 
     if (mView->zoomable()->smoothTransform())
@@ -144,7 +148,8 @@ void TileDelegate::paint(QPainter *painter,
     const QFontMetrics fm = painter->fontMetrics();
     const int labelHeight = m->showLabels() ? fm.lineSpacing() : 0;
     const int dw = option.rect.width() - tileWidth;
-    painter->drawPixmap(option.rect.adjusted(dw/2, extra, -(dw - dw/2), -extra - labelHeight), tileImage);
+    const QMargins margins = tile->drawMargins(mView->zoomable()->scale());
+    painter->drawImage(option.rect.adjusted(dw/2 + margins.left(), extra + margins.top(), -(dw - dw/2) - margins.right(), -extra - labelHeight - margins.bottom()), tile->image());
 
     if (m->showLabels()) {
         QString name = fm.elidedText(label, Qt::ElideRight, option.rect.width());
@@ -359,6 +364,7 @@ void MixedTilesetView::init()
 {
     setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
     setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    verticalScrollBar()->setSingleStep(32);
     setItemDelegate(new TileDelegate(this, this));
     setShowGrid(false);
 
@@ -405,6 +411,7 @@ MixedTilesetModel::MixedTilesetModel(QObject *parent) :
     mShowHeaders(true),
     mShowLabels(false),
     mHighlightLabelledItems(false),
+    mShowEmptyTilesAsMissing(false),
     mColumnCount(COLUMN_COUNT)
 {
 }
@@ -462,8 +469,9 @@ QVariant MixedTilesetModel::data(const QModelIndex &index, int role) const
             return item->mBackground;
     }
     if (role == Qt::DisplayRole) {
-        if (Tile *tile = tileAt(index))
+        if (Tile *tile = tileAt(index)) {
             return tile->image();
+        }
     }
     if (role == Qt::DecorationRole) {
         if (Item *item = toItem(index))
@@ -825,6 +833,11 @@ void MixedTilesetModel::setLabel(Tile *tile, const QString &label)
         QModelIndex index = this->index(tile);
         emit dataChanged(index, index);
     }
+}
+
+void MixedTilesetModel::setShowEmptyTilesAsMissig(bool show)
+{
+    mShowEmptyTilesAsMissing = show;
 }
 
 void MixedTilesetModel::setToolTip(int tileIndex, const QString &text)

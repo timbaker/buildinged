@@ -49,23 +49,21 @@ public:
 
     typedef Tiled::Tileset Tileset;
 signals:
-    void imageLoaded(QImage *image, QImage *image2x, Tiled::Tileset *tileset);
+    void imageLoaded(QImage *image, Tiled::Tileset *tileset);
 
 public slots:
     void work();
-    void addJob(Tileset *tileset, const QString &imageSource2x);
+    void addJob(Tileset *tileset);
 
 private:
     class Job {
     public:
-        Job(Tiled::Tileset *tileset, const QString &imageSource2x) :
-            tileset(tileset),
-            imageSource2x(imageSource2x)
+        Job(Tiled::Tileset *tileset) :
+            tileset(tileset)
         {
         }
 
         Tiled::Tileset *tileset;
-        QString imageSource2x;
     };
     QList<Job> mJobs;
 
@@ -87,7 +85,6 @@ namespace Internal {
 class FileSystemWatcher;
 
 #ifdef ZOMBOID
-class VirtualTileset;
 struct ZTileLayerNames;
 #endif
 
@@ -195,13 +192,6 @@ public:
     void loadTileset(Tileset *tileset, const QString &imageSource);
     void loadTextureTileset(Tileset *tileset, const QString &imageSource);
     void waitForTilesets(const QList<Tileset *> &tilesets);
-
-#ifdef VIRTUAL_TILESETS
-    void textureTilesetAdded(Tileset *ts) { mTextureMgrTilesets.insert(ts); }
-    void textureTilesetRemoved(Tileset *ts) { mTextureMgrTilesets.remove(ts); }
-
-    bool useVirtualTilesets() const { return mUseVirtualTilesets; }
-#endif
 #endif
 
 signals:
@@ -221,11 +211,7 @@ private slots:
     void fileChangedTimeout();
 
 #ifdef ZOMBOID
-    void imageLoaded(QImage *image, QImage *image2x, Tiled::Tileset *tileset);
-
-#ifdef VIRTUAL_TILESETS
-    void virtualTilesetChanged(VirtualTileset *vts);
-#endif
+    void imageLoaded(QImage *image, Tiled::Tileset *tileset);
 #endif
 
 private:
@@ -255,11 +241,6 @@ private:
     QVector<InterruptibleThread*> mImageReaderThreads;
     QVector<TilesetImageReaderWorker*> mImageReaderWorkers;
     int mNextThreadForJob;
-
-#ifdef VIRTUAL_TILESETS
-    QSet<Tileset*> mTextureMgrTilesets;
-    bool mUseVirtualTilesets;
-#endif
 #endif
 
 #ifdef ZOMBOID

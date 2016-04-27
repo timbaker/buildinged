@@ -566,11 +566,11 @@ BuildingTilesDialog::BuildingTilesDialog(QWidget *parent) :
 {
     ui->setupUi(this);
 
-    QSettings settings;
-    mExpertMode = settings.value(QLatin1String("BuildingEditor/BuildingTilesDialog/ExpertMode"), false).toBool();
+    QSettings &settings = BuildingPreferences::instance()->settings();
+    mExpertMode = settings.value(QLatin1String("BuildingTilesDialog/ExpertMode"), false).toBool();
     ui->actionExpertMode->setChecked(mExpertMode);
 
-    qreal scale = settings.value(QLatin1String("BuildingEditor/BuildingTilesDialog/TileScale"),
+    qreal scale = settings.value(QLatin1String("BuildingTilesDialog/TileScale"),
                                  BuildingPreferences::instance()->tileScale()).toReal();
     mZoomable->setScale(scale);
 
@@ -784,7 +784,7 @@ BuildingTilesDialog::BuildingTilesDialog(QWidget *parent) :
 
     synchUI();
 
-    settings.beginGroup(QLatin1String("BuildingEditor/BuildingTilesDialog"));
+    settings.beginGroup(QLatin1String("BuildingTilesDialog"));
     QByteArray geom = settings.value(QLatin1String("geometry")).toByteArray();
     if (!geom.isEmpty())
         restoreGeometry(geom);
@@ -982,8 +982,10 @@ QString BuildingTilesDialog::changeFurnitureTile(FurnitureTile *ftile,
 {
     QString old = ftile->tile(x, y) ? ftile->tile(x, y)->name() : QString();
     QSize oldSize = ftile->size();
-    ftile->setTile(x, y, tileName.isEmpty()
-                   ? 0 : BuildingTilesMgr::instance()->get(tileName));
+    BuildingTile *btile = tileName.isEmpty() ? 0 : BuildingTilesMgr::instance()->get(tileName);
+    if (btile && BuildingTilesMgr::instance()->tileFor(btile) && BuildingTilesMgr::instance()->tileFor(btile)->image().isNull())
+        btile = 0;
+    ftile->setTile(x, y, btile);
 
     FurnitureGroups::instance()->tileChanged(ftile);
 
@@ -1146,8 +1148,8 @@ void BuildingTilesDialog::setTilesetList()
 
 void BuildingTilesDialog::saveSplitterSizes(QSplitter *splitter)
 {
-    QSettings settings;
-    settings.beginGroup(QLatin1String("BuildingEditor/BuildingTilesDialog"));
+    QSettings &settings = BuildingPreferences::instance()->settings();
+    settings.beginGroup(QLatin1String("BuildingTilesDialog"));
     QVariantList v;
     foreach (int size, splitter->sizes())
         v += size;
@@ -1157,8 +1159,8 @@ void BuildingTilesDialog::saveSplitterSizes(QSplitter *splitter)
 
 void BuildingTilesDialog::restoreSplitterSizes(QSplitter *splitter)
 {
-    QSettings settings;
-    settings.beginGroup(QLatin1String("BuildingEditor/BuildingTilesDialog"));
+    QSettings &settings = BuildingPreferences::instance()->settings();
+    settings.beginGroup(QLatin1String("BuildingTilesDialog"));
     QVariant v = settings.value(tr("%1/sizes").arg(splitter->objectName()));
     if (v.canConvert(QVariant::List)) {
         QList<int> sizes;
@@ -1870,8 +1872,8 @@ void BuildingTilesDialog::accept()
         emit edited();
     }
 
-    QSettings settings;
-    settings.beginGroup(QLatin1String("BuildingEditor/BuildingTilesDialog"));
+    QSettings &settings = BuildingPreferences::instance()->settings();
+    settings.beginGroup(QLatin1String("BuildingTilesDialog"));
     settings.setValue(QLatin1String("geometry"), saveGeometry());
     settings.setValue(QLatin1String("SelectedCategory"),
                       mCategory ? mCategory->name() : QString());

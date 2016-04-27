@@ -46,9 +46,6 @@ using namespace BuildingEditor;
 using namespace Tiled;
 using namespace Tiled::Internal;
 
-#define TILE_ISO_WIDTH (64 * 2)
-#define TILE_ISO_HEIGHT (32 * 2)
-
 BuildingMap::BuildingMap(Building *building) :
     mBuilding(building),
     mMapComposite(0),
@@ -134,14 +131,18 @@ QString BuildingMap::buildingTileAt(int x, int y, const QList<bool> visibleLevel
                     if (!test)
                         test = tlBlend->cellAt(tx, ty).tile; // building tile
                     if (test) {
-                        QRect imageBox(QPoint(), test->image().size());
+                        Tile *realTile = test;
+                        if (test->image().isNull()) {
+                            test = TilesetManager::instance()->missingTile();
+                        }
+                        QRect imageBox(test->offset(), test->image().size());
                         QPoint p = QPoint(x, y) - (tileBox.bottomLeft().toPoint() - QPoint(0, test->height()));
                         // Handle double-size tiles
-                        if (mMap->tileWidth() == test->width() * 2) {
+                        if (tileBox.width() == test->width() * 2) {
                             p = QPoint(x, y) - (tileBox.bottomLeft().toPoint() - QPoint(0, test->height() * 2));
                             p.rx() /= 2;
                             p.ry() /= 2;
-                        } else if (mMap->tileWidth() == test->width() / 2) {
+                        } else if (tileBox.width() == test->width() / 2) {
 
                         }
                         // Hit test a small box around the cursor?
@@ -149,9 +150,9 @@ QString BuildingMap::buildingTileAt(int x, int y, const QList<bool> visibleLevel
                         for (int px = box.left(); px <= box.right(); px++) {
                             for (int py = box.top(); py <= box.bottom(); py++) {
                                 if (imageBox.contains(px, py)) {
-                                    QRgb pixel = test->image().pixel(px, py);
+                                    QRgb pixel = test->image().pixel(px - imageBox.x(), py - imageBox.y());
                                     if (qAlpha(pixel) > 0)
-                                        tile = test;
+                                        tile = realTile;
                                 }
                             }
                         }
@@ -480,7 +481,7 @@ void BuildingMap::BuildingToMap()
 
     mMap = new Map(orient,
                    mapSize.width(), mapSize.height(),
-                   64 * 2, 32 * 2);
+                   64, 32);
 
     // Add tilesets from Tilesets.txt
     mMap->addTileset(TilesetManager::instance()->missingTileset());
@@ -683,6 +684,11 @@ void BuildingMap::floorTilesChanged(BuildingFloor *floor)
     mShadowBuilding->floorTilesChanged(floor);
 
     pendingEraseUserTiles.insert(floor);
+
+    // Painting tiles in the Walls/Walls2 layer affects which grime tiles are chosen.
+//    if (tiles.contains(QLatin1Literal("Walls")) || tiles.contains(QLatin1Literal("Walls2")))
+        pendingLayoutToSquares.insert(floor);
+
     schedulePending();
 }
 
@@ -692,6 +698,11 @@ void BuildingMap::floorTilesChanged(BuildingFloor *floor, const QString &layerNa
     mShadowBuilding->floorTilesChanged(floor, layerName, bounds);
 
     pendingUserTilesToLayer[floor][layerName] |= bounds;
+
+    // Painting tiles in the Walls/Walls2 layer affects which grime tiles are chosen.
+    if (layerName == QLatin1Literal("Walls") || layerName == QLatin1Literal("Walls2"))
+        pendingLayoutToSquares.insert(floor);
+
     schedulePending();
 }
 

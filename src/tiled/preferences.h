@@ -102,7 +102,6 @@ public:
 
     QString tilesDirectory() const;
     QString tiles2xDirectory() const;
-    QString texturesDirectory() const;
 
     qreal tilesetScale() const;
 
@@ -131,12 +130,6 @@ public:
 
     int eraserBrushSize() const
     { return mEraserBrushSize; }
-
-    bool useVirtualTilesets() const
-    { return mUseVirtualTilesets; }
-
-    QString alternateVTSDir() const
-    { return mAlternateVTSDir; }
 #endif // ZOMBOID
 
     /**
@@ -153,7 +146,6 @@ public slots:
     void setShowTilesetGrid(bool showTilesetGrid);
 #ifdef ZOMBOID
     void setTilesDirectory(const QString &path);
-    void setTiles2xDirectory(const QString &path);
     void setTilesetScale(qreal scale);
     void setSortTilesets(bool sort);
     void setShowMiniMap(bool show);
@@ -163,8 +155,6 @@ public slots:
     void setWorldEdFiles(const QStringList &fileNames);
     void setHighlightRoomUnderPointer(bool highlight);
     void setEraserBrushSize(int newSize);
-    void setUseVirtualTilesets(bool use);
-    void setAlternateVTSDir(const QString &path);
 #endif
 
 signals:
@@ -192,7 +182,6 @@ signals:
     void worldEdFilesChanged(const QStringList &fileNames);
     void highlightRoomUnderPointerChanged(bool highlight);
     void eraserBrushSizeChanged(int newSize);
-    void useVirtualTilesetsChanged(bool use);
 #endif
 
 private:
@@ -221,7 +210,6 @@ private:
     QString mConfigDirectory;
     bool mAutoSwitchLayer;
     QString mTilesDirectory;
-    QString mTiles2xDirectory;
     qreal mTilesetScale;
     bool mSortTilesets;
     bool mShowMiniMap;
@@ -232,8 +220,6 @@ private:
     QStringList mWorldEdFiles;
     bool mHighlightRoomUnderPointer;
     int mEraserBrushSize;
-    bool mUseVirtualTilesets;
-    QString mAlternateVTSDir;
 #endif
 
     static Preferences *mInstance;
