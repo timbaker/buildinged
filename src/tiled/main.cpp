@@ -176,10 +176,6 @@ static bool InitConfigFiles()
     configFiles += BuildingTilesMgr::instance()->txtName();
     configFiles += BuildingTMX::instance()->txtName();
     configFiles += FurnitureGroups::instance()->txtName();
-#ifdef VIRTUAL_TILESETS
-    configFiles += TextureMgr::instance().txtName();
-    configFiles += VirtualTilesetMgr::instance().txtName();
-#endif
     configFiles += QLatin1String("TileShapes.txt");
 
     foreach (QString configFile, configFiles) {
@@ -204,6 +200,12 @@ static bool InitConfigFiles()
                               tr("%1\n(while reading %2)")
                               .arg(TileMetaInfoMgr::instance()->errorString())
                               .arg(TileMetaInfoMgr::instance()->txtName()));
+        return false;
+    }
+
+    if (!TileMetaInfoMgr::instance()->addNewTilesets()) {
+        QMessageBox::critical(BuildingEditorWindow::instance(), tr("It's no good, Jim!"),
+                              tr("%1\n(while adding new tilesets)"));
         return false;
     }
 
