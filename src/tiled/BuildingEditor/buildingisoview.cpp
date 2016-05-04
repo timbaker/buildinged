@@ -1340,9 +1340,9 @@ void BuildingIsoView::setUseOpenGL(bool useOpenGL)
 #ifndef QT_NO_OPENGL
     if (useOpenGL && QGLFormat::hasOpenGL()) {
         if (!qobject_cast<QOpenGLWidget*>(viewport())) {
-            QSurfaceFormat format = QSurfaceFormat::defaultFormat();/*
-            format.setDepth(false); // No need for a depth buffer
-            format.setSampleBuffers(true); // Enable anti-aliasing*/
+//            QSurfaceFormat format = QSurfaceFormat::defaultFormat();
+//            format.setDepth(false); // No need for a depth buffer
+//            format.setSampleBuffers(true); // Enable anti-aliasing
             QOpenGLWidget *viewport = new QOpenGLWidget();
 //            viewport->setFormat(format);
             setViewport(viewport);

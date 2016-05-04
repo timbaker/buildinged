@@ -64,6 +64,10 @@ public:
 
     bool changes();
 
+#ifdef BUILDINGED_SA
+    void afterInitConfigFiles();
+#endif
+
     void selectCategory(BuildingTileCategory *category);
     void selectCategory(FurnitureGroup *furnitureGroup);
     void reparent(QWidget *parent);

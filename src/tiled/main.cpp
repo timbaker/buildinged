@@ -34,6 +34,7 @@
 #include "BuildingEditor/buildingeditorwindow.h"
 #include "BuildingEditor/buildingtemplates.h"
 #include "BuildingEditor/buildingtiles.h"
+#include "BuildingEditor/buildingtilesdialog.h"
 #include "BuildingEditor/buildingtmx.h"
 #include "BuildingEditor/furnituregroups.h"
 
@@ -176,7 +177,6 @@ static bool InitConfigFiles()
     configFiles += BuildingTilesMgr::instance()->txtName();
     configFiles += BuildingTMX::instance()->txtName();
     configFiles += FurnitureGroups::instance()->txtName();
-    configFiles += QLatin1String("TileShapes.txt");
 
     foreach (QString configFile, configFiles) {
         QString fileName = configPath + QLatin1Char('/') + configFile;
@@ -329,6 +329,8 @@ int main(int argc, char *argv[])
 
     if (!InitConfigFiles())
         return 0;
+
+    BuildingTilesDialog::instance()->afterInitConfigFiles();
 
     QObject::connect(&a, SIGNAL(fileOpenRequest(QString)),
                      &w, SLOT(openFile(QString)));

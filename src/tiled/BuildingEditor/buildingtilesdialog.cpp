@@ -779,6 +779,7 @@ BuildingTilesDialog::BuildingTilesDialog(QWidget *parent) :
     // drop events.
     setAcceptDrops(true);
 
+#ifndef BUILDINGED_SA
     setCategoryList();
     setTilesetList();
 
@@ -814,6 +815,7 @@ BuildingTilesDialog::BuildingTilesDialog(QWidget *parent) :
 
     restoreSplitterSizes(ui->overallSplitter);
     restoreSplitterSizes(ui->categorySplitter);
+#endif
 }
 
 BuildingTilesDialog::~BuildingTilesDialog()
@@ -827,6 +829,50 @@ bool BuildingTilesDialog::changes()
     mChanges = false;
     return changes;
 }
+
+#ifdef BUILDINGED_SA
+// All this stuff is from the constructor
+void BuildingTilesDialog::afterInitConfigFiles()
+{
+    setCategoryList();
+    setTilesetList();
+
+    synchUI();
+
+    QSettings& settings = BuildingPreferences::instance()->settings();
+
+    settings.beginGroup(QLatin1String("BuildingTilesDialog"));
+    QByteArray geom = settings.value(QLatin1String("geometry")).toByteArray();
+    if (!geom.isEmpty())
+        restoreGeometry(geom);
+
+    QString categoryName = settings.value(QLatin1String("SelectedCategory")).toString();
+    if (!categoryName.isEmpty()) {
+        int index = BuildingTilesMgr::instance()->indexOf(categoryName);
+        if (index >= 0)
+            ui->categoryList->setCurrentRow(mRowOfFirstCategory + index);
+    }
+
+    QString furnitureGroupName = settings.value(QLatin1String("SelectedFurnitureGroup")).toString();
+    if (!furnitureGroupName.isEmpty()) {
+        int index = FurnitureGroups::instance()->indexOf(furnitureGroupName);
+        if (index >= 0)
+            ui->categoryList->setCurrentRow(mRowOfFirstFurnitureGroup + index);
+    }
+
+    QString tilesetName = settings.value(QLatin1String("SelectedTileset")).toString();
+    if (!tilesetName.isEmpty()) {
+        if (Tiled::Tileset *tileset = TileMetaInfoMgr::instance()->tileset(tilesetName)) {
+            int index = TileMetaInfoMgr::instance()->indexOf(tileset);
+            ui->tilesetList->setCurrentRow(index);
+        }
+    }
+    settings.endGroup();
+
+    restoreSplitterSizes(ui->overallSplitter);
+    restoreSplitterSizes(ui->categorySplitter);
+}
+#endif
 
 void BuildingTilesDialog::selectCategory(BuildingTileCategory *category)
 {
