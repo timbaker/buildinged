@@ -22,6 +22,7 @@
 #include "buildingtemplates.h"
 #include "buildingtiles.h"
 #include "furnituregroups.h"
+#include "roofhiding.h"
 
 #if defined(Q_OS_WIN) && (_MSC_VER >= 1600)
 // Hmmmm.  libtiled.dll defines the MapRands class as so:
@@ -501,6 +502,8 @@ void BuildingFloor::LayoutToSquares()
     for (int x = 0; x < width(); x++) {
         for (int y = 0; y < height(); y++) {
             Room *room = mRoomAtPos[x][y];
+            if (room != nullptr && RoofHiding::isEmptyOutside(room->Name))
+                room = nullptr;
             mIndexAtPos[x][y] = room ? mBuilding->indexOf(room) : -1;
             squares[x][y].mExterior = room == 0;
         }
@@ -2377,11 +2380,13 @@ static bool tileHasGrimeProperties(BuildingTile *btile, GrimeProperties *props)
         if (Tiled::Internal::TileDefTile *tdt = tdts->tileAt(btile->mIndex)) {
             if (tdt->mProperties.contains(QString::fromLatin1("GrimeType"))) {
                 if (props) {
-                    if (tdt->mProperties.contains(QString::fromLatin1("WallW")) ||
+                    if (tdt->mProperties.contains(QString::fromLatin1("DoorWallW")) ||
+                            tdt->mProperties.contains(QString::fromLatin1("WallW")) ||
                             tdt->mProperties.contains(QString::fromLatin1("WallWTrans")) ||
                             tdt->mProperties.contains(QString::fromLatin1("windowW")))
                         props->West = true;
-                    else if (tdt->mProperties.contains(QString::fromLatin1("WallN")) ||
+                    else if (tdt->mProperties.contains(QString::fromLatin1("DoorWallN")) ||
+                             tdt->mProperties.contains(QString::fromLatin1("WallN")) ||
                              tdt->mProperties.contains(QString::fromLatin1("WallNTrans")) ||
                              tdt->mProperties.contains(QString::fromLatin1("windowN")))
                         props->North = true;

@@ -162,6 +162,7 @@ public:
 #ifndef BUILDINGED_SA
     bool openFile(const QString &fileName);
 #endif
+    bool openAutoSave(const QString &fileName);
 
     bool confirmAllSave();
     bool closeYerself();

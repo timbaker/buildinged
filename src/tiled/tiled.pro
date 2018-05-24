@@ -69,7 +69,8 @@ SOURCES += colorbutton.cpp \
     commandlineparser.cpp \
     languagemanager.cpp \
     tiledapplication.cpp \
-    tiledeffile.cpp
+    tiledeffile.cpp \
+    BuildingEditor/roofhiding.cpp
 
 HEADERS += colorbutton.h \
     filesystemwatcher.h \
@@ -92,7 +93,8 @@ HEADERS += colorbutton.h \
     commandlineparser.h \
     languagemanager.h \
     tiledapplication.h \
-    tiledeffile.h
+    tiledeffile.h \
+    BuildingEditor/roofhiding.h
 
 HEADERS += BuildingEditor/buildingeditorwindow.h \
     BuildingEditor/simplefile.h \

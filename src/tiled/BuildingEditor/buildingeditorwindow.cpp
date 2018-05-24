@@ -545,6 +545,18 @@ bool BuildingEditorWindow::openFile(const QString &fileName)
     return false;
 }
 
+bool BuildingEditorWindow::openAutoSave(const QString &fileName)
+{
+    QString error;
+    if (BuildingDocument *doc = BuildingDocument::read(fileName, error)) {
+        docman()->addDocument(doc);
+        return true;
+    }
+
+    QMessageBox::warning(this, tr("Error reading building"), error);
+    return false;
+}
+
 bool BuildingEditorWindow::confirmAllSave()
 {
     foreach (BuildingDocument *doc, docman()->documents()) {
@@ -571,6 +583,11 @@ bool BuildingEditorWindow::closeYerself()
 
 bool BuildingEditorWindow::Startup()
 {
+#ifdef BUILDINGED_SA
+    mIsoObjectEditMode->afterInitConfigFiles();
+    mOrthoObjectEditMode->afterInitConfigFiles();
+#endif
+
     // Refresh the ui before blocking while loading tilesets etc
     qApp->processEvents(QEventLoop::ExcludeUserInputEvents);
 

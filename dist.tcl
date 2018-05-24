@@ -3,7 +3,7 @@ if {[llength [info commands console]]} {
     update
 }
 
-set QT_DIR C:/Programming/QtSDK2015/5.5/msvc2013_64
+set QT_DIR C:/Programming/QtSDK2015/5.7/msvc2013_64
 set BIN C:/Programming/BuildingEd/dist64
 set SRC C:/Programming/BuildingEd/BuildingEd
 set DEST {C:\Users\Tim\Desktop\ProjectZomboid\Tools\BuildingEd}
@@ -17,7 +17,7 @@ if {$argc > 0} {
             puts "dist.tcl: 32-bit"
             append DEST "32"
             set BIN C:/Programming/BuildingEd/dist32
-            set QT_DIR C:/Programming/QtSDK2015/5.5/msvc2013
+            set QT_DIR C:/Programming/QtSDK2015/5.7/msvc2013
             set SUFFIX "-32bit"
             set SUFFIX2 "32"
             set REDIST vcredist_x86.exe
