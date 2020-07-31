@@ -1096,6 +1096,18 @@ MapImageData MapImageRenderWorker::generateMapImage(MapComposite *mapComposite)
         }
     }
 
+    painter.end();
+
+    for (int y = 0; y < image.height(); y++) {
+        QRgb *pixels = reinterpret_cast<QRgb*>(image.scanLine(y));
+        for (int x = 0; x < image.width(); x++) {
+            QRgb pixel = pixels[x];
+            if (qAlpha(pixel) > 0.01f) {
+                pixels[x] = qRgba(qRed(pixel), qGreen(pixel), qBlue(pixel), 255);
+            }
+        }
+    }
+
     MapImageData data;
 #ifdef WORLDED
     data.image = image.convertToFormat(QImage::Format_ARGB4444_Premultiplied);
@@ -1118,7 +1130,6 @@ MapImageData MapImageRenderWorker::generateMapImage(MapComposite *mapComposite)
     data.mapSize = map->size();
     data.tileSize = renderer->boundingRect(QRect(0, 0, 1, 1)).size();
 
-    painter.end();
     delete renderer;
 
     return data;

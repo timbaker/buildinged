@@ -57,7 +57,7 @@ public:
     QRect bounds() const;
     QMargins drawMargins() const;
 
-    QRectF boundingRect(const Tiled::MapRenderer *renderer);
+    QRectF boundingRect(const Tiled::MapRenderer *renderer) const;
 
 #ifdef WORLDED
     void prepareDrawing2();
@@ -143,8 +143,8 @@ private:
     struct SubMapLayers
     {
         SubMapLayers()
-            : mSubMap(0)
-            , mLayerGroup(0)
+            : mSubMap(nullptr)
+            , mLayerGroup(nullptr)
         {
         }
         SubMapLayers(MapComposite *subMap, CompositeLayerGroup *layerGroup);
@@ -164,7 +164,7 @@ private:
     QVector<Tiled::TileLayer*> mBlendOverLayers;
     struct ToolLayer
     {
-        ToolLayer() : mLayer(0), mPos(QPoint()), mRegion(QRegion()) {}
+        ToolLayer() : mLayer(nullptr), mPos(QPoint()), mRegion(QRegion()) {}
         const Tiled::TileLayer *mLayer;
         QPoint mPos;
         QRegion mRegion;
@@ -188,12 +188,12 @@ class MapComposite : public QObject
     Q_OBJECT
 public:
     MapComposite(MapInfo *mapInfo, Tiled::Map::Orientation orientRender = Tiled::Map::Unknown,
-                 MapComposite *parent = 0, const QPoint &positionInParent = QPoint(),
+                 MapComposite *parent = nullptr, const QPoint &positionInParent = QPoint(),
                  int levelOffset = 0);
     ~MapComposite();
 
-    static bool levelForLayer(const QString &layerName, int *levelPtr = 0);
-    static bool levelForLayer(Tiled::Layer *layer, int *levelPtr = 0);
+    static bool levelForLayer(const QString &layerName, int *levelPtr = nullptr);
+    static bool levelForLayer(Tiled::Layer *layer, int *levelPtr = nullptr);
     static QString layerNameWithoutPrefix(const QString &name);
     static QString layerNameWithoutPrefix(Tiled::Layer *layer);
 
@@ -265,9 +265,9 @@ public:
     struct ZOrderItem
     {
         ZOrderItem(CompositeLayerGroup *group)
-            : layer(0), layerIndex(-1), group(group) {}
+            : layer(nullptr), layerIndex(-1), group(group) {}
         ZOrderItem(Tiled::Layer *layer, int layerIndex)
-            : layer(layer), layerIndex(layerIndex), group(0) {}
+            : layer(layer), layerIndex(layerIndex), group(nullptr) {}
         Tiled::Layer *layer;
         int layerIndex;
         CompositeLayerGroup *group;
@@ -292,6 +292,11 @@ public:
     { mShowBMPTiles = show; }
     bool showBMPTiles() const
     { return mShowBMPTiles; }
+
+    void setShowLotFloorsOnly(bool show)
+    { mShowLotFloorsOnly = show; }
+    bool showLotFloorsOnly() const
+    { return mShowLotFloorsOnly; }
 
     void setShowMapTiles(bool show)
     { mShowMapTiles = show; }
@@ -367,6 +372,7 @@ private:
     bool mSavedVisible;
     bool mHiddenDuringDrag;
     bool mShowBMPTiles;
+    bool mShowLotFloorsOnly = false;
     bool mShowMapTiles;
     bool mSavedShowBMPTiles;
     bool mSavedShowMapTiles;
