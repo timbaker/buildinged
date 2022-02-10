@@ -48,14 +48,21 @@ macx {
 #OBJECTS_DIR = .obj
 
 SOURCES += colorbutton.cpp \
+    BuildingEditor/buildingkeyvaluesdialog.cpp \
+    changeproperties.cpp \
     filesystemwatcher.cpp \
     mapcomposite.cpp \
     mapmanager.cpp \
+    newmapbinaryfile.cpp \
+    propertiesdialog.cpp \
+    propertiesmodel.cpp \
+    propertiesview.cpp \
     resizedialog.cpp \
     threads.cpp \
     tilemetainfodialog.cpp \
     tilemetainfomgr.cpp \
     tilesetmanager.cpp \
+    tilesetstxtfile.cpp \
     zoomable.cpp \
     zprogress.cpp \
     bmpblender.cpp \
@@ -73,14 +80,21 @@ SOURCES += colorbutton.cpp \
     BuildingEditor/roofhiding.cpp
 
 HEADERS += colorbutton.h \
+    BuildingEditor/buildingkeyvaluesdialog.h \
+    changeproperties.h \
     filesystemwatcher.h \
     mapcomposite.h \
     mapmanager.h \
+    newmapbinaryfile.h \
+    propertiesdialog.h \
+    propertiesmodel.h \
+    propertiesview.h \
     resizedialog.h \
     threads.h \
     tilemetainfodialog.h \
     tilemetainfomgr.h \
     tilesetmanager.h \
+    tilesetstxtfile.h \
     zoomable.h \
     zprogress.h \
     bmpblender.h \
@@ -205,6 +219,7 @@ SOURCES += BuildingEditor/simplefile.cpp \
     BuildingEditor/buildingroomdef.cpp
 
 FORMS += BuildingEditor/buildingeditorwindow.ui \
+    BuildingEditor/buildingkeyvaluesdialog.ui \
     BuildingEditor/newbuildingdialog.ui \
     BuildingEditor/buildingpreferencesdialog.ui \
     BuildingEditor/buildingtemplatesdialog.ui \
@@ -220,7 +235,8 @@ FORMS += BuildingEditor/buildingeditorwindow.ui \
     BuildingEditor/choosetemplatesdialog.ui \
     BuildingEditor/buildingpropertiesdialog.ui \
     BuildingEditor/welcomemode.ui \
-    addtilesetsdialog.ui
+    addtilesetsdialog.ui \
+    propertiesdialog.ui
 
 macx {
     OBJECTIVE_SOURCES += macsupport.mm

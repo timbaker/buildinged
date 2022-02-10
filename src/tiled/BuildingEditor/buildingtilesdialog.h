@@ -117,6 +117,7 @@ private:
 
 private slots:
     void categoryChanged(int index);
+    void tilesetFilterEdited(const QString &text);
     void tilesetSelectionChanged();
     void synchUI();
 

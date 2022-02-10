@@ -1,5 +1,8 @@
 /*
- * Copyright 2018, Tim Baker <treectrl@users.sf.net>
+ * propertiesview.h
+ * Copyright 2009, Thorbjørn Lindeijer <thorbjorn@lindeijer.nl>
+ *
+ * This file is part of Tiled.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -15,14 +18,27 @@
  * this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "roofhiding.h"
+#ifndef PROPERTIESVIEW_H
+#define PROPERTIESVIEW_H
 
-using namespace BuildingEditor;
+#include <QTreeView>
 
-bool RoofHiding::isEmptyOutside(const QString &roomName)
+namespace Tiled {
+namespace Internal {
+
+/**
+ * The view that displays the properties.
+ */
+class PropertiesView : public QTreeView
 {
-    int pos = roomName.indexOf(QLatin1Char('#'));
-    if (pos != -1)
-        return roomName.left(pos).compare(QLatin1Literal("emptyoutside"), Qt::CaseInsensitive) == 0;
-    return roomName.compare(QLatin1Literal("emptyoutside"), Qt::CaseInsensitive) == 0;
-}
+public:
+    PropertiesView(QWidget *parent = 0);
+
+protected:
+    void keyPressEvent(QKeyEvent *event);
+};
+
+} // namespace Internal
+} // namespace Tiled
+
+#endif // PROPERTIESVIEW_H

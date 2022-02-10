@@ -41,6 +41,9 @@ public:
     
     QStringList fileNames();
 
+public slots:
+    int exec() override;
+
 private:
     void setFilesList();
 
@@ -57,6 +60,7 @@ private:
     QString mDirectory;
     QStringList mIgnore;
     bool mIgnoreIsPaths;
+    bool mAllowBrowse;
 };
 
 #endif // ADDTILESETSDIALOG_H
