@@ -58,10 +58,10 @@ BuildingTilesetDock::BuildingTilesetDock(QWidget *parent) :
     bool enabled = Preferences::instance()->autoSwitchLayer();
     mActionSwitchLayer->setChecked(enabled == false);
     mActionSwitchLayer->setIcon(enabled ? mIconTileLayer : mIconTileLayerStop);
-    connect(mActionSwitchLayer, SIGNAL(toggled(bool)),
-            SLOT(layerSwitchToggled(bool)));
-    connect(Preferences::instance(), SIGNAL(autoSwitchLayerChanged(bool)),
-            SLOT(autoSwitchLayerChanged(bool)));
+    connect(mActionSwitchLayer, &QAction::toggled,
+            this, &BuildingTilesetDock::layerSwitchToggled);
+    connect(Preferences::instance(), &Preferences::autoSwitchLayerChanged,
+            this, &BuildingTilesetDock::autoSwitchLayerChanged);
 
     QToolBar *toolBar = new QToolBar(this);
     toolBar->setIconSize(QSize(16, 16));
@@ -82,35 +82,35 @@ BuildingTilesetDock::BuildingTilesetDock(QWidget *parent) :
     mZoomable->setScale(BuildingPreferences::instance()->tileScale());
     mZoomable->connectToComboBox(ui->scaleComboBox);
     ui->tiles->setZoomable(mZoomable);
-    connect(mZoomable, SIGNAL(scaleChanged(qreal)),
-            BuildingPreferences::instance(), SLOT(setTileScale(qreal)));
-    connect(BuildingPreferences::instance(), SIGNAL(tileScaleChanged(qreal)),
-            SLOT(tileScaleChanged(qreal)));
+    connect(mZoomable, &Zoomable::scaleChanged,
+            BuildingPreferences::instance(), &BuildingPreferences::setTileScale);
+    connect(BuildingPreferences::instance(), &BuildingPreferences::tileScaleChanged,
+            this, &BuildingTilesetDock::tileScaleChanged);
 
-    connect(ui->tilesets, SIGNAL(currentRowChanged(int)),
-            SLOT(currentTilesetChanged(int)));
+    connect(ui->tilesets, &QListWidget::currentRowChanged,
+            this, &BuildingTilesetDock::currentTilesetChanged);
 
     ui->tiles->model()->setShowHeaders(false);
-    connect(ui->tiles->selectionModel(), SIGNAL(selectionChanged(QItemSelection,QItemSelection)),
-            SLOT(tileSelectionChanged()));
-    connect(Preferences::instance(), SIGNAL(autoSwitchLayerChanged(bool)),
-            SLOT(autoSwitchLayerChanged(bool)));
+    connect(ui->tiles->selectionModel(), &QItemSelectionModel::selectionChanged,
+            this, &BuildingTilesetDock::tileSelectionChanged);
+    connect(Preferences::instance(), &Preferences::autoSwitchLayerChanged,
+            this, &BuildingTilesetDock::autoSwitchLayerChanged);
 
-    connect(BuildingDocumentMgr::instance(), SIGNAL(currentDocumentChanged(BuildingDocument*)),
-            SLOT(currentDocumentChanged(BuildingDocument*)));
+    connect(BuildingDocumentMgr::instance(), &BuildingDocumentMgr::currentDocumentChanged,
+            this, &BuildingTilesetDock::currentDocumentChanged);
 
-    connect(TileMetaInfoMgr::instance(), SIGNAL(tilesetAdded(Tiled::Tileset*)),
-            SLOT(tilesetAdded(Tiled::Tileset*)));
-    connect(TileMetaInfoMgr::instance(), SIGNAL(tilesetAboutToBeRemoved(Tiled::Tileset*)),
-            SLOT(tilesetAboutToBeRemoved(Tiled::Tileset*)));
+    connect(TileMetaInfoMgr::instance(), &TileMetaInfoMgr::tilesetAdded,
+            this, &BuildingTilesetDock::tilesetAdded);
+    connect(TileMetaInfoMgr::instance(), &TileMetaInfoMgr::tilesetAboutToBeRemoved,
+            this, &BuildingTilesetDock::tilesetAboutToBeRemoved);
 
-    connect(TilesetManager::instance(), SIGNAL(tilesetChanged(Tileset*)),
-            SLOT(tilesetChanged(Tileset*)));
-    connect(TilesetManager::instance(), SIGNAL(tileLayerNameChanged(Tile*)),
-            SLOT(tileLayerNameChanged(Tile*)));
+    connect(TilesetManager::instance(), &TilesetManager::tilesetChanged,
+            this, &BuildingTilesetDock::tilesetChanged);
+    connect(TilesetManager::instance(), &TilesetManager::tileLayerNameChanged,
+            this, &BuildingTilesetDock::tileLayerNameChanged);
 
-    connect(PickTileTool::instance(), SIGNAL(tilePicked(QString)),
-            SLOT(buildingTilePicked(QString)));
+    connect(PickTileTool::instance(), &PickTileTool::tilePicked,
+            this, &BuildingTilesetDock::buildingTilePicked);
 
     retranslateUi();
 }
@@ -219,7 +219,7 @@ void BuildingTilesetDock::setTilesetList()
         if (tileset->isMissing())
             item->setForeground(Qt::red);
         ui->tilesets->addItem(item);
-        width = qMax(width, fm.width(tileset->name()));
+        width = qMax(width, fm.horizontalAdvance(tileset->name()));
     }
     int sbw = ui->tilesets->verticalScrollBar()->sizeHint().width();
     ui->tilesets->setFixedWidth(width + 16 + sbw);
@@ -379,7 +379,8 @@ void BuildingTilesetView::contextMenuEvent(QContextMenuEvent *event)
     QStringList layerNames;
     if (tile) {
         // Get a list of layer names from the current map
-        QSet<QString> set = BuildingMap::layerNames(0).toSet();
+        QStringList layerNames0 = BuildingMap::layerNames(0);
+        QSet<QString> set(layerNames0.constBegin(), layerNames0.constEnd());
 
         // Get a list of layer names for the current tileset
         for (int i = 0; i < tile->tileset()->tileCount(); i++) {
@@ -388,7 +389,7 @@ void BuildingTilesetView::contextMenuEvent(QContextMenuEvent *event)
             if (!layerName.isEmpty())
                 set.insert(layerName);
         }
-        layerNames = QStringList::fromSet(set);
+        layerNames = QStringList(set.constBegin(), set.constEnd());
         layerNames.sort();
 
         QMenu *layersMenu = menu.addMenu(QLatin1String("Default Layer"));

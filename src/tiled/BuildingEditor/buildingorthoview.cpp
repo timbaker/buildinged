@@ -62,7 +62,7 @@ QPainterPath BuildingRegionItem::shape() const
 {
     BuildingRenderer *renderer = mScene->renderer();
     QPainterPath path;
-    foreach (const QRect &r, mRegion.rects()) {
+    for (const QRect &r : mRegion) {
         QPolygonF polygon = renderer->tileToScenePolygonF(r, mLevel);
         path.addPolygon(polygon);
     }
@@ -79,7 +79,7 @@ void BuildingRegionItem::paint(QPainter *painter,
     painter->setPen(Qt::NoPen);
 
     BuildingRenderer *renderer = mScene->renderer();
-    foreach (const QRect &r, mRegion.rects()) {
+    for (const QRect &r : mRegion) {
         QPolygonF polygon = renderer->tileToScenePolygonF(r, mLevel);
         if (QRectF(polygon.boundingRect()).intersects(option->exposedRect))
             painter->drawConvexPolygon(polygon);
@@ -147,10 +147,10 @@ RoomSelectionItem::RoomSelectionItem(BuildingBaseScene *scene, QGraphicsItem *pa
     highlight.setAlpha(128);
     setColor(highlight);
 
-    connect(document(), SIGNAL(roomSelectionChanged(QRegion)),
-            SLOT(roomSelectionChanged()));
-    connect(document(), SIGNAL(currentFloorChanged()),
-            SLOT(currentLevelChanged()));
+    connect(document(), &BuildingDocument::roomSelectionChanged,
+            this, &RoomSelectionItem::roomSelectionChanged);
+    connect(document(), &BuildingDocument::currentFloorChanged,
+            this, &RoomSelectionItem::currentLevelChanged);
 }
 
 BuildingDocument *RoomSelectionItem::document() const
@@ -1281,8 +1281,8 @@ BuildingOrthoScene::BuildingOrthoScene(QObject *parent) :
 
     setBackgroundBrush(Qt::black);
 
-    connect(ToolManager::instance(), SIGNAL(currentToolChanged(BaseTool*)),
-            SLOT(currentToolChanged(BaseTool*)));
+    connect(ToolManager::instance(), &ToolManager::currentToolChanged,
+            this, &BuildingOrthoScene::currentToolChanged);
 
     // Install an event filter so that we can get key events on behalf of the
     // active tool without having to have the current focus.
@@ -1358,43 +1358,43 @@ void BuildingOrthoScene::setDocument(BuildingDocument *doc)
                      building()->width() * 30 + 20,
                      building()->height() * 30 + 20);
 
-        connect(mDocument, SIGNAL(currentFloorChanged()),
-                SLOT(currentFloorChanged()));
+        connect(mDocument, &BuildingDocument::currentFloorChanged,
+                this, &BuildingOrthoScene::currentFloorChanged);
 
-        connect(mDocument, SIGNAL(roomAtPositionChanged(BuildingFloor*,QPoint)),
-                SLOT(roomAtPositionChanged(BuildingFloor*,QPoint)));
+        connect(mDocument, &BuildingDocument::roomAtPositionChanged,
+                this, &BuildingOrthoScene::roomAtPositionChanged);
 
-        connect(mDocument, SIGNAL(floorAdded(BuildingFloor*)),
-                SLOT(floorAdded(BuildingFloor*)));
-        connect(mDocument, SIGNAL(floorRemoved(BuildingFloor*)),
-                SLOT(floorRemoved(BuildingFloor*)));
-        connect(mDocument, SIGNAL(floorEdited(BuildingFloor*)),
-                SLOT(floorEdited(BuildingFloor*)));
+        connect(mDocument, &BuildingDocument::floorAdded,
+                this, &BuildingBaseScene::floorAdded);
+        connect(mDocument, &BuildingDocument::floorRemoved,
+                this, &BuildingBaseScene::floorRemoved);
+        connect(mDocument, &BuildingDocument::floorEdited,
+                this, &BuildingBaseScene::floorEdited);
 
-        connect(mDocument, SIGNAL(objectAdded(BuildingObject*)),
-                SLOT(objectAdded(BuildingObject*)));
-        connect(mDocument, SIGNAL(objectAboutToBeRemoved(BuildingObject*)),
-                SLOT(objectAboutToBeRemoved(BuildingObject*)));
-        connect(mDocument, SIGNAL(objectMoved(BuildingObject*)),
-                SLOT(objectMoved(BuildingObject*)));
-        connect(mDocument, SIGNAL(objectTileChanged(BuildingObject*)),
-                SLOT(objectTileChanged(BuildingObject*)));
-        connect(mDocument, SIGNAL(objectChanged(BuildingObject*)),
-                SLOT(objectChanged(BuildingObject*)));
-        connect(mDocument, SIGNAL(selectedObjectsChanged()),
-                SLOT(selectedObjectsChanged()));
+        connect(mDocument, &BuildingDocument::objectAdded,
+                this, &BuildingBaseScene::objectAdded);
+        connect(mDocument, &BuildingDocument::objectAboutToBeRemoved,
+                this, &BuildingBaseScene::objectAboutToBeRemoved);
+        connect(mDocument, &BuildingDocument::objectMoved,
+                this, &BuildingBaseScene::objectMoved);
+        connect(mDocument, &BuildingDocument::objectTileChanged,
+                this, &BuildingBaseScene::objectTileChanged);
+        connect(mDocument, &BuildingDocument::objectChanged,
+                this, &BuildingBaseScene::objectChanged);
+        connect(mDocument, &BuildingDocument::selectedObjectsChanged,
+                this, &BuildingBaseScene::selectedObjectsChanged);
 
-        connect(mDocument, SIGNAL(roomChanged(Room*)),
-                SLOT(roomChanged(Room*)));
-        connect(mDocument, SIGNAL(roomAdded(Room*)),
-                SLOT(roomAdded(Room*)));
-        connect(mDocument, SIGNAL(roomRemoved(Room*)),
-                SLOT(roomRemoved(Room*)));
-        connect(mDocument, SIGNAL(roomsReordered()),
-                SLOT(roomsReordered()));
+        connect(mDocument, &BuildingDocument::roomChanged,
+                this, &BuildingOrthoScene::roomChanged);
+        connect(mDocument, &BuildingDocument::roomAdded,
+                this, &BuildingOrthoScene::roomAdded);
+        connect(mDocument, &BuildingDocument::roomRemoved,
+                this, &BuildingOrthoScene::roomRemoved);
+        connect(mDocument, &BuildingDocument::roomsReordered,
+                this, &BuildingOrthoScene::roomsReordered);
 
-        connect(mDocument, SIGNAL(buildingResized()), SLOT(buildingResized()));
-        connect(mDocument, SIGNAL(buildingRotated()), SLOT(buildingRotated()));
+        connect(mDocument, &BuildingDocument::buildingResized, this, &BuildingOrthoScene::buildingResized);
+        connect(mDocument, &BuildingDocument::buildingRotated, this, &BuildingOrthoScene::buildingRotated);
     }
 
     emit documentChanged();
@@ -1573,12 +1573,12 @@ BuildingOrthoView::BuildingOrthoView(QWidget *parent) :
     // This enables mouseMoveEvent without any buttons being pressed
     setMouseTracking(true);
 
-    connect(mZoomable, SIGNAL(scaleChanged(qreal)), SLOT(adjustScale(qreal)));
+    connect(mZoomable, &Zoomable::scaleChanged, this, &BuildingOrthoView::adjustScale);
 }
 
 void BuildingOrthoView::mousePressEvent(QMouseEvent *event)
 {
-    if (event->button() == Qt::MidButton) {
+    if (event->button() == Qt::MiddleButton) {
         setHandScrolling(true);
         return;
     }
@@ -1613,7 +1613,7 @@ void BuildingOrthoView::mouseMoveEvent(QMouseEvent *event)
 
 void BuildingOrthoView::mouseReleaseEvent(QMouseEvent *event)
 {
-    if (event->button() == Qt::MidButton) {
+    if (event->button() == Qt::MiddleButton) {
         setHandScrolling(false);
         return;
     }
@@ -1626,13 +1626,15 @@ void BuildingOrthoView::mouseReleaseEvent(QMouseEvent *event)
  */
 void BuildingOrthoView::wheelEvent(QWheelEvent *event)
 {
-    if (event->modifiers() & Qt::ControlModifier
-        && event->orientation() == Qt::Vertical)
+    QPoint numDegrees = event->angleDelta() / 8;
+    if ((event->modifiers() & Qt::ControlModifier) && (numDegrees.y() != 0))
     {
+        QPoint numSteps = numDegrees / 15;
+
         // No automatic anchoring since we'll do it manually
         setTransformationAnchor(QGraphicsView::NoAnchor);
 
-        mZoomable->handleWheelDelta(event->delta());
+        mZoomable->handleWheelDelta(numSteps.y() * 120);
 
         // Place the last known mouse scene pos below the mouse again
         QWidget *view = viewport();

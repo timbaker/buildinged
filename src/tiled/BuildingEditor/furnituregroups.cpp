@@ -122,7 +122,7 @@ FurnitureTiles *FurnitureGroups::furnitureTilesFromSFB(SimpleFileBlock &furnitur
                 if (!kv.name.contains(QLatin1Char(',')))
                     continue;
                 QStringList values = kv.name.split(QLatin1Char(','),
-                                                   QString::SkipEmptyParts);
+                                                   Qt::SkipEmptyParts);
                 int x = values[0].toInt();
                 int y = values[1].toInt();
                 if (x < 0 || x >= 50 || y < 0 || y >= 50) {
@@ -799,6 +799,7 @@ void FurnitureTiles::initNames()
     mLayerNames += QLatin1String("Frames");
     mLayerNames += QLatin1String("Doors");
     mLayerNames += QLatin1String("Roof");
+    mLayerNames += QLatin1String("FloorFurniture");
 
     Q_ASSERT(mLayerNames.size() == LayerCount);
 }

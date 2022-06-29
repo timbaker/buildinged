@@ -347,10 +347,11 @@ QSize FurnitureView::sizeHint() const
 
 void FurnitureView::wheelEvent(QWheelEvent *event)
 {
-    if (event->modifiers() & Qt::ControlModifier
-        && event->orientation() == Qt::Vertical)
+    QPoint numDegrees = event->angleDelta() / 8;
+    if ((event->modifiers() & Qt::ControlModifier) && (numDegrees.y() != 0))
     {
-        mZoomable->handleWheelDelta(event->delta());
+        QPoint numSteps = numDegrees / 15;
+        mZoomable->handleWheelDelta(numSteps.y() * 120);
         return;
     }
 
@@ -396,7 +397,7 @@ void FurnitureView::setZoomable(Zoomable *zoomable)
 {
     mZoomable = zoomable;
     if (zoomable)
-        connect(mZoomable, SIGNAL(scaleChanged(qreal)), SLOT(scaleChanged(qreal)));
+        connect(mZoomable, &Zoomable::scaleChanged, this, &FurnitureView::scaleChanged);
 }
 
 void FurnitureView::furnitureTileResized(FurnitureTile *ftile)
@@ -485,15 +486,15 @@ void FurnitureView::init()
 
     setModel(mModel);
 
-    connect(mZoomable, SIGNAL(scaleChanged(qreal)), SLOT(scaleChanged(qreal)));
+    connect(mZoomable, &Zoomable::scaleChanged, this, &FurnitureView::scaleChanged);
 
-    connect(TilesetManager::instance(), SIGNAL(tilesetChanged(Tileset*)),
-            SLOT(tilesetChanged(Tileset*)));
+    connect(TilesetManager::instance(), &TilesetManager::tilesetChanged,
+            this, &FurnitureView::tilesetChanged);
 
-    connect(TileMetaInfoMgr::instance(), SIGNAL(tilesetAdded(Tiled::Tileset*)),
-            SLOT(tilesetAdded(Tiled::Tileset*)));
-    connect(TileMetaInfoMgr::instance(), SIGNAL(tilesetRemoved(Tiled::Tileset*)),
-            SLOT(tilesetRemoved(Tiled::Tileset*)));
+    connect(TileMetaInfoMgr::instance(), &TileMetaInfoMgr::tilesetAdded,
+            this, &FurnitureView::tilesetAdded);
+    connect(TileMetaInfoMgr::instance(), &TileMetaInfoMgr::tilesetRemoved,
+            this, &FurnitureView::tilesetRemoved);
 }
 
 /////

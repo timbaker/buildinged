@@ -34,7 +34,6 @@
 
 #include <QCompleter>
 #include <QDebug>
-#include <QDirModel>
 #include <QFileDialog>
 #include <QFileSystemModel>
 #include <QGraphicsScene>
@@ -188,13 +187,13 @@ WelcomeMode::WelcomeMode(QObject *parent) :
     mNewItem = link = new WelcomeModeNS::LinkItem(tr("New Building"));
     scene->addItem(link);
     link->setPos(x + 6, y);
-    connect(mNewItem, SIGNAL(clicked()), SLOT(linkClicked()));
+    connect(mNewItem, &WelcomeModeNS::LinkItem::clicked, this, &WelcomeMode::linkClicked);
 
     y += 30;
     mOpenItem = link = new WelcomeModeNS::LinkItem(tr("Open Building"));
     scene->addItem(link);
     link->setPos(x + 6, y);
-    connect(mOpenItem, SIGNAL(clicked()), SLOT(linkClicked()));
+    connect(mOpenItem, &WelcomeModeNS::LinkItem::clicked, this, &WelcomeMode::linkClicked);
 
     y += sceneRectOfItem(link).height() + 14;
 //    QGraphicsLineItem *line2 = scene->addLine(x, y, 300, y);
@@ -217,14 +216,15 @@ WelcomeMode::WelcomeMode(QObject *parent) :
     }
 
     {
-        QDirModel *model = new QDirModel(this);
+        QFileSystemModel *model = new QFileSystemModel(this);
+        model->setRootPath(QDir::rootPath());
         model->setFilter(QDir::AllDirs | QDir::Dirs | QDir::Drives | QDir::NoDotAndDotDot);
         QCompleter *completer = new QCompleter(model, this);
         ui->dirEdit->setCompleter(completer);
     }
 
     BuildingPreferences *prefs = BuildingPreferences::instance();
-    connect(prefs, SIGNAL(mapsDirectoryChanged()), this, SLOT(onMapsDirectoryChanged()));
+    connect(prefs, &BuildingPreferences::mapsDirectoryChanged, this, &WelcomeMode::onMapsDirectoryChanged);
 
     QDir mapsDir(prefs->mapsDirectory());
     if (!mapsDir.exists())
@@ -262,16 +262,16 @@ WelcomeMode::WelcomeMode(QObject *parent) :
         hHeader->setResizeMode(0, QHeaderView::Stretch);
         hHeader->setResizeMode(1, QHeaderView::ResizeToContents);
 #endif
-        connect(ui->treeView, SIGNAL(activated(QModelIndex)),
-                SLOT(onActivated(QModelIndex)));
-        connect(ui->treeView->selectionModel(), SIGNAL(selectionChanged(QItemSelection,QItemSelection)),
-                SLOT(selectionChanged()));
+        connect(ui->treeView, &QAbstractItemView::activated,
+                this, &WelcomeMode::onActivated);
+        connect(ui->treeView->selectionModel(), &QItemSelectionModel::selectionChanged,
+                this, &WelcomeMode::selectionChanged);
     }
 
     ui->dirEdit->setText(QDir::toNativeSeparators(mapsDir.canonicalPath()));
-    connect(ui->dirEdit, SIGNAL(returnPressed()), SLOT(editedMapsDirectory()));
+    connect(ui->dirEdit, &QLineEdit::returnPressed, this, &WelcomeMode::editedMapsDirectory);
 
-    connect(ui->dirBrowse, SIGNAL(clicked()), SLOT(browse()));
+    connect(ui->dirBrowse, &QAbstractButton::clicked, this, &WelcomeMode::browse);
 
     connect(ui->legendCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &WelcomeMode::legendIndexChanged);
@@ -293,13 +293,13 @@ WelcomeMode::WelcomeMode(QObject *parent) :
 
     setWidget(mWidget);
 
-    connect(MapImageManager::instance(), SIGNAL(mapImageChanged(MapImage*)),
-            SLOT(onMapImageChanged(MapImage*)));
-    connect(MapImageManager::instance(), SIGNAL(mapImageFailedToLoad(MapImage*)),
-            SLOT(mapImageFailedToLoad(MapImage*)));
+    connect(MapImageManager::instance(), &MapImageManager::mapImageChanged,
+            this, &WelcomeMode::onMapImageChanged);
+    connect(MapImageManager::instance(), &MapImageManager::mapImageFailedToLoad,
+            this, &WelcomeMode::mapImageFailedToLoad);
 
-    connect(BuildingEditorWindow::instance(), SIGNAL(recentFilesChanged()),
-            SLOT(setRecentFiles()));
+    connect(BuildingEditorWindow::instance(), &BuildingEditorWindow::recentFilesChanged,
+            this, &WelcomeMode::setRecentFiles);
 }
 
 void WelcomeMode::readSettings(QSettings &settings)
@@ -440,8 +440,8 @@ void WelcomeMode::setRecentFiles()
         ui->graphicsView->scene()->addItem(link);
         link->setPos(x + 6, y);
         mRecentItems += link;
-        connect(link, SIGNAL(clicked()), SLOT(linkClicked()));
-        connect(link, SIGNAL(hovered(bool)), SLOT(linkHovered(bool)));
+        connect(link, &WelcomeModeNS::LinkItem::clicked, this, &WelcomeMode::linkClicked);
+        connect(link, &WelcomeModeNS::LinkItem::hovered, this, &WelcomeMode::linkHovered);
         y += link->boundingRect().height() + 12;
     }
 
@@ -602,9 +602,9 @@ void WelcomeMode::setAutoSaveFiles()
         ui->graphicsView->scene()->addItem(link);
         link->setPos(x + 6, y);
         mAutoSaveItems += link;
-        connect(link, SIGNAL(clicked()), SLOT(linkClicked()));
-        connect(link, SIGNAL(clickedRemove()), SLOT(linkClickedRemove()));
-        connect(link, SIGNAL(hovered(bool)), SLOT(linkHovered(bool)));
+        connect(link, &WelcomeModeNS::LinkItem::clicked, this, &WelcomeMode::linkClicked);
+        connect(link, &WelcomeModeNS::LinkItem::clickedRemove, this, &WelcomeMode::linkClickedRemove);
+        connect(link, &WelcomeModeNS::LinkItem::hovered, this, &WelcomeMode::linkHovered);
         y += link->boundingRect().height() + 12;
     }
 

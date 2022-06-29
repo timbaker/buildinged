@@ -56,7 +56,7 @@ using namespace Tiled;
 using namespace Tiled::Internal;
 using namespace BuildingEditor;
 
-MapManager *MapManager::mInstance = NULL;
+MapManager *MapManager::mInstance = nullptr;
 
 MapManager *MapManager::instance()
 {
@@ -68,27 +68,28 @@ MapManager *MapManager::instance()
 void MapManager::deleteInstance()
 {
     delete mInstance;
-    mInstance = 0;
+    mInstance = nullptr;
 }
 
 MapManager::MapManager() :
     mFileSystemWatcher(new FileSystemWatcher(this)),
     mDeferralDepth(0),
     mDeferralQueued(false),
-    mWaitingForMapInfo(0),
+    mWaitingForMapInfo(nullptr),
     mNextThreadForJob(0)
 #ifdef WORLDED
     , mReferenceEpoch(0)
 #endif
 {
-    connect(mFileSystemWatcher, SIGNAL(fileChanged(QString)),
-            SLOT(fileChanged(QString)));
+    connect(mFileSystemWatcher, &FileSystemWatcher::fileChanged,
+            this, &MapManager::fileChanged);
 
     mChangedFilesTimer.setInterval(500);
     mChangedFilesTimer.setSingleShot(true);
-    connect(&mChangedFilesTimer, SIGNAL(timeout()),
-            SLOT(fileChangedTimeout()));
+    connect(&mChangedFilesTimer, &QTimer::timeout,
+            this, &MapManager::fileChangedTimeout);
 
+    qRegisterMetaType<MapInfo*>("BuildingEditor::Building*");
     qRegisterMetaType<MapInfo*>("MapInfo*");
 
     mMapReaderThread.resize(4);
@@ -97,19 +98,19 @@ MapManager::MapManager() :
         mMapReaderThread[i] = new InterruptibleThread;
         mMapReaderWorker[i] = new MapReaderWorker(mMapReaderThread[i], i);
         mMapReaderWorker[i]->moveToThread(mMapReaderThread[i]);
-        connect(mMapReaderWorker[i], SIGNAL(loaded(Map*,MapInfo*)),
-                SLOT(mapLoadedByThread(Map*,MapInfo*)));
-        connect(mMapReaderWorker[i], SIGNAL(loaded(Building*,MapInfo*)),
-                SLOT(buildingLoadedByThread(Building*,MapInfo*)));
-        connect(mMapReaderWorker[i], SIGNAL(failedToLoad(QString,MapInfo*)),
-                SLOT(failedToLoadByThread(QString,MapInfo*)));
+        connect(mMapReaderWorker[i], qOverload<Map*,MapInfo*>(&MapReaderWorker::loaded),
+                this, &MapManager::mapLoadedByThread);
+        connect(mMapReaderWorker[i], qOverload<BuildingEditor::Building*,MapInfo*>(&MapReaderWorker::loaded),
+                this, &MapManager::buildingLoadedByThread);
+        connect(mMapReaderWorker[i], &MapReaderWorker::failedToLoad,
+                this, &MapManager::failedToLoadByThread);
         mMapReaderThread[i]->start();
     }
 
-    connect(TileMetaInfoMgr::instance(), SIGNAL(tilesetAdded(Tiled::Tileset*)),
-            SLOT(metaTilesetAdded(Tiled::Tileset*)));
-    connect(TileMetaInfoMgr::instance(), SIGNAL(tilesetRemoved(Tiled::Tileset*)),
-            SLOT(metaTilesetRemoved(Tiled::Tileset*)));
+    connect(TileMetaInfoMgr::instance(), &TileMetaInfoMgr::tilesetAdded,
+            this, &MapManager::metaTilesetAdded);
+    connect(TileMetaInfoMgr::instance(), &TileMetaInfoMgr::tilesetRemoved,
+            this, &MapManager::metaTilesetRemoved);
 }
 
 MapManager::~MapManager()
@@ -187,7 +188,7 @@ MapInfo *MapManager::loadMap(const QString &mapName, const QString &relativeTo,
     QString mapFilePath = pathForMap(mapName, relativeTo);
     if (mapFilePath.isEmpty()) {
         mError = tr("A map file couldn't be found!\n%1").arg(mapName);
-        return 0;
+        return nullptr;
     }
 
     if (mMapInfo.contains(mapFilePath) && mMapInfo[mapFilePath]->map()) {
@@ -198,7 +199,7 @@ MapInfo *MapManager::loadMap(const QString &mapName, const QString &relativeTo,
 
     MapInfo *mapInfo = this->mapInfo(mapFilePath);
     if (!mapInfo)
-        return 0;
+        return nullptr;
     if (mapInfo->mLoading) {
         foreach (MapReaderWorker *w, mMapReaderWorker)
             QMetaObject::invokeMethod(w, "possiblyRaisePriority",
@@ -206,7 +207,7 @@ MapInfo *MapManager::loadMap(const QString &mapName, const QString &relativeTo,
                                       Q_ARG(int,priority));
         if (!asynch) {
             noise() << "WAITING FOR MAP" << mapName << "with priority" << priority;
-            Q_ASSERT(mWaitingForMapInfo == 0);
+            Q_ASSERT(mWaitingForMapInfo == nullptr);
             mWaitingForMapInfo = mapInfo;
             for (int i = 0; i < mDeferredMaps.size(); i++) {
                 MapDeferral md = mDeferredMaps[i];
@@ -219,9 +220,9 @@ MapInfo *MapManager::loadMap(const QString &mapName, const QString &relativeTo,
             while (mapInfo->mLoading) {
                 qApp->processEvents(QEventLoop::ExcludeUserInputEvents);
             }
-            mWaitingForMapInfo = 0;
+            mWaitingForMapInfo = nullptr;
             if (!mapInfo->map())
-                return 0;
+                return nullptr;
         }
         return mapInfo;
     }
@@ -236,9 +237,9 @@ MapInfo *MapManager::loadMap(const QString &mapName, const QString &relativeTo,
 
     // Wow.  Had a map *finish loading* after the PROGRESS call below displayed
     // the dialog and started processing events but before the qApp->processEvents()
-    // call below, resulting in a hang because mWaitingForMapInfo wasn't set till
+    // call below, resulting in a hang because mWaitingForMapInfo wasn't set until
     // after the PROGRESS call.
-    Q_ASSERT(mWaitingForMapInfo == 0);
+    Q_ASSERT(mWaitingForMapInfo == nullptr);
     mWaitingForMapInfo = mapInfo;
 
     PROGRESS progress(tr("Reading %1").arg(fileInfoMap.completeBaseName()));
@@ -258,10 +259,10 @@ MapInfo *MapManager::loadMap(const QString &mapName, const QString &relativeTo,
     while (mapInfo->mLoading) {
         qApp->processEvents(QEventLoop::ExcludeUserInputEvents);
     }
-    mWaitingForMapInfo = 0;
+    mWaitingForMapInfo = nullptr;
     if (mapInfo->map())
         return mapInfo;
-    return 0;
+    return nullptr;
 }
 
 MapInfo *MapManager::newFromMap(Map *map, const QString &mapFilePath)
@@ -740,7 +741,7 @@ void MapManager::metaTilesetRemoved(Tileset *tileset)
     }
 }
 
-void MapManager::mapLoadedByThread(MapManager::Map *map, MapInfo *mapInfo)
+void MapManager::mapLoadedByThread(Map *map, MapInfo *mapInfo)
 {
     if (mapInfo != mWaitingForMapInfo && mDeferralDepth > 0) {
         noise() << "MAP LOADED BY THREAD - DEFERR" << mapInfo->path();
@@ -818,7 +819,7 @@ void MapManager::buildingLoadedByThread(Building *building, MapInfo *mapInfo)
     QSet<Tileset*> usedTilesets = map->usedTilesets();
     usedTilesets.remove(TilesetManager::instance()->missingTileset());
 
-    TileMetaInfoMgr::instance()->loadTilesets(usedTilesets.toList());
+    TileMetaInfoMgr::instance()->loadTilesets({ usedTilesets.begin(), usedTilesets.end() });
 
     // The map references TileMetaInfoMgr's tilesets, but we add a reference
     // to them ourself below.
@@ -968,7 +969,7 @@ Map *MapReaderWorker::loadMap(MapInfo *mapInfo)
     return map;
 }
 
-MapReaderWorker::Building *MapReaderWorker::loadBuilding(MapInfo *mapInfo)
+Building *MapReaderWorker::loadBuilding(MapInfo *mapInfo)
 {
     BuildingReader reader;
     Building *building = reader.read(mapInfo->path());

@@ -226,9 +226,9 @@ signals:
     void recentFilesChanged();
 
 private slots:
-    void documentAdded(BuildingDocument *doc);
-    void documentAboutToClose(int index, BuildingDocument *doc);
-    void currentDocumentChanged(BuildingDocument *doc);
+    void documentAdded(BuildingEditor::BuildingDocument *doc);
+    void documentAboutToClose(int index, BuildingEditor::BuildingDocument *doc);
+    void currentDocumentChanged(BuildingEditor::BuildingDocument *doc);
 
     void currentEditorChanged();
 
@@ -240,7 +240,6 @@ private slots:
     void insertFloorAbove();
     void insertFloorBelow();
     void removeFloor();
-    void floorsDialog();
 
     void newBuilding();
     void openBuilding();
@@ -263,11 +262,10 @@ private slots:
     void keyValuesDialog();
     void buildingGrime();
 
-    void roomsDialog();
-    void roomAdded(Room *room);
-    void roomRemoved(Room *room);
+    void roomAdded(BuildingEditor::Room *room);
+    void roomRemoved(BuildingEditor::Room *room);
     void roomsReordered();
-    void roomChanged(Room *room);
+    void roomChanged(BuildingEditor::Room *room);
 
     void cropToMinimum();
     void cropToSelection();
@@ -278,21 +276,24 @@ private slots:
     void rotateLeft();
 
     void templatesDialog();
+
 public slots:
 #ifdef BUILDINGED_SA
     bool openFile(const QString &fileName);
 #endif
+    void floorsDialog();
+    void roomsDialog();
     void tilesDialog();
-private slots:
     void templateFromBuilding();
 
+private slots:
     void showObjectsChanged(bool show);
 
     void tilesetAdded(Tiled::Tileset *tileset);
     void tilesetAboutToBeRemoved(Tiled::Tileset *tileset);
     void tilesetRemoved(Tiled::Tileset *tileset);
 
-    void tilesetChanged(Tileset *tileset);
+    void tilesetChanged(Tiled::Tileset *tileset);
 
     void reportMissingTilesets();
 
@@ -300,10 +301,10 @@ private slots:
 
     void help();
 
-    void currentModeAboutToChange(IMode *mode);
+    void currentModeAboutToChange(BuildingEditor::IMode *mode);
     void currentModeChanged();
 
-    void viewAddedForDocument(BuildingDocument *doc, BuildingIsoView *view);
+    void viewAddedForDocument(BuildingEditor::BuildingDocument *doc, BuildingEditor::BuildingIsoView *view);
 
 private:
     static BuildingEditorWindow *mInstance;

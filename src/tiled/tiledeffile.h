@@ -25,6 +25,7 @@
 #include <QObject>
 #include <QPoint>
 #include <QStringList>
+#include <QVariant>
 #include <QVector>
 
 class SimpleFileBlock;
@@ -743,7 +744,7 @@ public:
             foreach (QString s, prop->knownPropertyNames())
                 ret.insert(s);
         }
-        return ret.toList();
+        return { ret.begin(), ret.end() };
     }
 
     void copy(const UIProperties &other)
@@ -811,6 +812,12 @@ public:
 
     TileDefTile *tileAt(int index);
     void resize(int columns, int rows);
+
+    TileDefTile *tile(int col, int row)
+    {
+        int index = col + row * mColumns;
+        return (index >= 0 && index < mTiles.size()) ? mTiles[index] : 0;
+    }
 
     QString mName;
     QString mImageSource;

@@ -65,7 +65,7 @@ void BaseTool::setEditor(BuildingBaseScene *editor)
 void BaseTool::setAction(QAction *action)
 {
     mAction = action;
-    connect(mAction, SIGNAL(triggered()), SLOT(makeCurrent()));
+    connect(mAction, &QAction::triggered, this, &BaseTool::makeCurrent);
 }
 
 void BaseTool::setEnabled(bool enabled)
@@ -142,8 +142,8 @@ void BaseTool::makeCurrent()
 
 void BaseTool::activate()
 {
-    connect(document(), SIGNAL(objectAboutToBeRemoved(BuildingObject*)),
-            SLOT(objectAboutToBeRemoved(BuildingObject*)));
+    connect(document(), &BuildingDocument::objectAboutToBeRemoved,
+            this, &BaseTool::objectAboutToBeRemoved);
 }
 
 void BaseTool::deactivate()
@@ -196,8 +196,8 @@ void ToolManager::activateTool(BaseTool *tool)
     mCurrentTool = tool;
 
     if (mCurrentTool) {
-        connect(mCurrentTool, SIGNAL(statusTextChanged()),
-                SLOT(currentToolStatusTextChanged()));
+        connect(mCurrentTool, &BaseTool::statusTextChanged,
+                this, &ToolManager::currentToolStatusTextChanged);
         Q_ASSERT(mCurrentEditor != 0);
         mCurrentTool->setEditor(mCurrentEditor);
         mCurrentTool->action()->setChecked(true);
@@ -667,7 +667,7 @@ void SelectMoveRoomsTool::updateMovingItems()
 
             // Erase the area being moved.
             QRect floorBounds = floor->bounds();
-            foreach (QRect r, selectedArea().rects()) {
+            for (QRect r : selectedArea()) {
                 r &= floorBounds;
                 for (int x = r.left(); x <= r.right(); x++)
                     for (int y = r.top(); y <= r.bottom(); y++) {
@@ -679,7 +679,7 @@ void SelectMoveRoomsTool::updateMovingItems()
             }
 
             // Copy the moved area to its new location.
-            foreach (QRect src, selectedArea().rects()) {
+            for (QRect src : selectedArea()) {
                 src &= floorBounds;
                 for (int x = src.left(); x <= src.right(); x++) {
                     for (int y = src.top(); y <= src.bottom(); y++) {
@@ -782,7 +782,7 @@ void SelectMoveRoomsTool::finishMovingFloor(BuildingFloor *floor, bool objectsTo
     QVector<QVector<Room*> > grid = floor->grid();
 
     QRect floorBounds = floor->bounds();
-    foreach (QRect src, selectedArea().rects()) {
+    for (QRect src : selectedArea()) {
         src &= floorBounds;
         for (int x = src.left(); x <= src.right(); x++) {
             for (int y = src.top(); y <= src.bottom(); y++) {
@@ -791,7 +791,7 @@ void SelectMoveRoomsTool::finishMovingFloor(BuildingFloor *floor, bool objectsTo
         }
     }
 
-    foreach (QRect src, selectedArea().rects()) {
+    for (QRect src : selectedArea()) {
         src &= floorBounds;
         for (int x = src.left(); x <= src.right(); x++) {
             for (int y = src.top(); y <= src.bottom(); y++) {
@@ -809,7 +809,7 @@ void SelectMoveRoomsTool::finishMovingFloor(BuildingFloor *floor, bool objectsTo
     QMap<QString,FloorTileGrid*> grime = floor->grimeClone();
 
     floorBounds = floor->bounds(1, 1);
-    foreach (QRect src, selectedArea().rects()) {
+    for (QRect src : selectedArea()) {
         src &= floorBounds;
         for (int x = src.left(); x <= src.right(); x++) {
             for (int y = src.top(); y <= src.bottom(); y++) {
@@ -819,7 +819,7 @@ void SelectMoveRoomsTool::finishMovingFloor(BuildingFloor *floor, bool objectsTo
         }
     }
 
-    foreach (QRect src, selectedArea().rects()) {
+    for (QRect src : selectedArea()) {
         src &= floorBounds;
         for (int x = src.left(); x <= src.right(); x++) {
             for (int y = src.top(); y <= src.bottom(); y++) {
@@ -2430,12 +2430,12 @@ WallTool::WallTool() :
     mObject(0),
     mItem(0),
     mCursorItem(0),
+    mEyedrop(false),
+    mMouseOverObject(false),
     mObjectItem(0),
     mHandleObject(0),
     mHandleItem(0),
     mMouseOverHandle(false),
-    mEyedrop(false),
-    mMouseOverObject(false),
     mCurrentExteriorTile(BuildingTilesMgr::instance()->noneTileEntry()),
     mCurrentInteriorTile(BuildingTilesMgr::instance()->noneTileEntry()),
     mCurrentExteriorTrim(BuildingTilesMgr::instance()->noneTileEntry()),

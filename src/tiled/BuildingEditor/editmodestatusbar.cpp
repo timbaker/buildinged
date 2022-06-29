@@ -37,12 +37,12 @@ EditModeStatusBar::EditModeStatusBar(const QString &prefix, QObject *parent) :
     editorScaleComboBox->setObjectName(prefix + QLatin1String("editorScaleComboBox"));
     statusBarLayout->addWidget(editorScaleComboBox);
 
-    connect(BuildingDocumentMgr::instance(), SIGNAL(currentDocumentChanged(BuildingDocument*)),
-            SLOT(resizeCoordsLabel()));
-    connect(ToolManager::instance(), SIGNAL(statusTextChanged(BaseTool*)),
-            SLOT(updateToolStatusText()));
-    connect(ToolManager::instance(), SIGNAL(currentToolChanged(BaseTool*)),
-            SLOT(currentToolChanged(BaseTool*)));
+    connect(BuildingDocumentMgr::instance(), &BuildingDocumentMgr::currentDocumentChanged,
+            this, &EditModeStatusBar::resizeCoordsLabel);
+    connect(ToolManager::instance(), &ToolManager::statusTextChanged,
+            this, &EditModeStatusBar::updateToolStatusText);
+    connect(ToolManager::instance(), &ToolManager::currentToolChanged,
+            this, &EditModeStatusBar::currentToolChanged);
 }
 
 void EditModeStatusBar::resizeCoordsLabel()
@@ -54,7 +54,7 @@ void EditModeStatusBar::resizeCoordsLabel()
     }
     QFontMetrics fm = coordLabel->fontMetrics();
     QString coordString = QString(QLatin1String("%1,%2")).arg(width).arg(height);
-    coordLabel->setMinimumWidth(fm.width(coordString) + 8);
+    coordLabel->setMinimumWidth(fm.horizontalAdvance(coordString) + 8);
 }
 
 void EditModeStatusBar::mouseCoordinateChanged(const QPoint &tilePos)

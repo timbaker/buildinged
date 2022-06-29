@@ -60,6 +60,17 @@ private:
     MixedTilesetView *mView;
 };
 
+static QPointF tileToPixelCoords(int mapWidth, int mapHeight, qreal scale, qreal x, qreal y)
+{
+    Q_UNUSED(mapWidth)
+    const int tileWidth = 64 * scale;
+    const int tileHeight = 32 * scale;
+    const int originX = mapHeight * tileWidth / 2;
+
+    return QPointF((x - y) * tileWidth / 2 + originX,
+                   (x + y) * tileHeight / 2);
+}
+
 void TileDelegate::paint(QPainter *painter,
                          const QStyleOptionViewItem &option,
                          const QModelIndex &index) const
@@ -150,7 +161,9 @@ void TileDelegate::paint(QPainter *painter,
     const int labelHeight = m->showLabels() ? fm.lineSpacing() : 0;
     const int dw = option.rect.width() - tileWidth;
     const QMargins margins = tile->drawMargins(mView->zoomable()->scale());
-    painter->drawImage(option.rect.adjusted(dw/2 + margins.left(), extra + margins.top(), -(dw - dw/2) - margins.right(), -extra - labelHeight - margins.bottom()), tile->image());
+    QRect imageRect = option.rect.adjusted(dw/2 + margins.left(), extra + margins.top(),
+                                           -(dw - dw/2) - margins.right(), -extra - labelHeight - margins.bottom());
+    painter->drawImage(imageRect, tile->image());
 
     if (m->showLabels()) {
         QString name = fm.elidedText(label, Qt::ElideRight, option.rect.width());
@@ -165,6 +178,35 @@ void TileDelegate::paint(QPainter *painter,
         painter->fillRect(option.rect.adjusted(extra, extra, -extra, -extra),
                           option.palette.highlight());
         painter->setOpacity(opacity);
+    }
+
+    // "Surface" property rectangle
+    bool ok = false;
+    int Surface = index.data(MixedTilesetModel::SurfaceRole).toInt(&ok);
+    if (ok) {
+        imageRect = option.rect.adjusted(dw / 2, extra + (96 - Surface) * mView->zoomable()->scale(), -(dw - dw / 2), -extra - labelHeight);
+        painter->drawLine(imageRect.topLeft() + tileToPixelCoords(1, 1, mView->zoomable()->scale(), 0, 0),
+                          imageRect.topLeft() + tileToPixelCoords(1, 1, mView->zoomable()->scale(), 1, 0));
+        painter->drawLine(imageRect.topLeft() + tileToPixelCoords(1, 1, mView->zoomable()->scale(), 1, 0),
+                          imageRect.topLeft() + tileToPixelCoords(1, 1, mView->zoomable()->scale(), 1, 1));
+        painter->drawLine(imageRect.topLeft() + tileToPixelCoords(1, 1, mView->zoomable()->scale(), 1, 1),
+                          imageRect.topLeft() + tileToPixelCoords(1, 1, mView->zoomable()->scale(), 0, 1));
+        painter->drawLine(imageRect.topLeft() + tileToPixelCoords(1, 1, mView->zoomable()->scale(), 0, 1),
+                          imageRect.topLeft() + tileToPixelCoords(1, 1, mView->zoomable()->scale(), 0, 0));
+    }
+
+    // "ItemHeight" property rectangle
+    int ItemHeight = index.data(MixedTilesetModel::ItemHeightRole).toInt(&ok);
+    if (ok) {
+        imageRect = option.rect.adjusted(dw / 2, extra + (96 - ItemHeight) * mView->zoomable()->scale(), -(dw - dw / 2), -extra - labelHeight);
+        painter->drawLine(imageRect.topLeft() + tileToPixelCoords(1, 1, mView->zoomable()->scale(), 0, 0),
+                          imageRect.topLeft() + tileToPixelCoords(1, 1, mView->zoomable()->scale(), 1, 0));
+        painter->drawLine(imageRect.topLeft() + tileToPixelCoords(1, 1, mView->zoomable()->scale(), 1, 0),
+                          imageRect.topLeft() + tileToPixelCoords(1, 1, mView->zoomable()->scale(), 1, 1));
+        painter->drawLine(imageRect.topLeft() + tileToPixelCoords(1, 1, mView->zoomable()->scale(), 1, 1),
+                          imageRect.topLeft() + tileToPixelCoords(1, 1, mView->zoomable()->scale(), 0, 1));
+        painter->drawLine(imageRect.topLeft() + tileToPixelCoords(1, 1, mView->zoomable()->scale(), 0, 1),
+                          imageRect.topLeft() + tileToPixelCoords(1, 1, mView->zoomable()->scale(), 0, 0));
     }
 
     // Focus rect around 'current' item
@@ -284,10 +326,11 @@ void MixedTilesetView::mouseReleaseEvent(QMouseEvent *event)
 
 void MixedTilesetView::wheelEvent(QWheelEvent *event)
 {
-    if (event->modifiers() & Qt::ControlModifier
-        && event->orientation() == Qt::Vertical)
+    QPoint numDegrees = event->angleDelta() / 8;
+    if ((event->modifiers() & Qt::ControlModifier) && (numDegrees.y() != 0))
     {
-        mZoomable->handleWheelDelta(event->delta());
+        QPoint numSteps = numDegrees / 15;
+        mZoomable->handleWheelDelta(numSteps.y() * 120);
         return;
     }
 
@@ -315,7 +358,7 @@ void MixedTilesetView::setZoomable(Zoomable *zoomable)
 {
     mZoomable = zoomable;
     if (zoomable)
-        connect(mZoomable, SIGNAL(scaleChanged(qreal)), SLOT(scaleChanged(qreal)));
+        connect(mZoomable, &Zoomable::scaleChanged, this, &MixedTilesetView::scaleChanged);
 }
 
 void MixedTilesetView::contextMenuEvent(QContextMenuEvent *event)
@@ -337,7 +380,7 @@ void MixedTilesetView::setTiles(const QList<Tile *> &tiles,
     mMaxHeaderWidth = 0;
     if (model()->columnCount() == 1) {
         foreach (QString header, headers) {
-            int width = fontMetrics().width(header);
+            int width = fontMetrics().horizontalAdvance(header);
             mMaxHeaderWidth = qMax(mMaxHeaderWidth, width);
         }
     }
@@ -402,7 +445,7 @@ void MixedTilesetView::init()
 
     setModel(mModel);
 
-    connect(mZoomable, SIGNAL(scaleChanged(qreal)), SLOT(scaleChanged(qreal)));
+    connect(mZoomable, &Zoomable::scaleChanged, this, &MixedTilesetView::scaleChanged);
 
     mMousePressed = false;
 
@@ -473,6 +516,16 @@ QVariant MixedTilesetModel::data(const QModelIndex &index, int role) const
                     ? item->mCategoryColor
                     : QColor(220, 220, 220));
     }
+    if (role == ItemHeightRole) {
+        if (Item *item = toItem(index)) {
+            return (item->mItemHeightProperty >= 0) ? item->mItemHeightProperty : QVariant();
+        }
+    }
+    if (role == SurfaceRole) {
+        if (Item *item = toItem(index)) {
+            return (item->mSurfaceProperty >= 0) ? item->mSurfaceProperty : QVariant();
+        }
+    }
     if (role == Qt::BackgroundRole) {
         if (Item *item = toItem(index))
             return item->mBackground;
@@ -502,6 +555,20 @@ bool MixedTilesetModel::setData(const QModelIndex &index, const QVariant &value,
                 item->mCategoryColor = qvariant_cast<QBrush>(value).color();
                 // SLOW in TileProperties editor...
 //                emit dataChanged(index, index);
+                return true;
+            }
+        }
+        if (role == ItemHeightRole) {
+            if (value.canConvert<int>()) {
+                item->mItemHeightProperty = value.toInt();
+                emit dataChanged(index, index);
+                return true;
+            }
+        }
+        if (role == SurfaceRole) {
+            if (value.canConvert<int>()) {
+                item->mSurfaceProperty = value.toInt();
+                emit dataChanged(index, index);
                 return true;
             }
         }

@@ -49,7 +49,7 @@ public:
     TileEditModeToolBar(QWidget *parent = 0);
 
 private slots:
-    void currentDocumentChanged(BuildingDocument *doc);
+    void currentDocumentChanged(BuildingEditor::BuildingDocument *doc);
 
     void updateActions();
 
@@ -68,14 +68,14 @@ public:
     void writeSettings(QSettings &settings);
 
 signals:
-    void viewAddedForDocument(BuildingDocument *doc, BuildingIsoView *view);
+    void viewAddedForDocument(BuildingEditor::BuildingDocument *doc, BuildingEditor::BuildingIsoView *view);
     
 public slots:
     void onActiveStateChanged(bool active);
 
-    void documentAdded(BuildingDocument *doc);
-    void currentDocumentChanged(BuildingDocument *doc);
-    void documentAboutToClose(int index, BuildingDocument *doc);
+    void documentAdded(BuildingEditor::BuildingDocument *doc);
+    void currentDocumentChanged(BuildingEditor::BuildingDocument *doc);
+    void documentAboutToClose(int index, BuildingEditor::BuildingDocument *doc);
 
     void currentDocumentTabChanged(int index);
     void documentTabCloseRequested(int index);

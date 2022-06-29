@@ -60,9 +60,9 @@ public:
 protected slots:
     void onActiveStateChanged(bool active);
 
-    virtual void documentAdded(BuildingDocument *doc);
-    void currentDocumentChanged(BuildingDocument *doc);
-    void documentAboutToClose(int index, BuildingDocument *doc);
+    virtual void documentAdded(BuildingEditor::BuildingDocument *doc);
+    void currentDocumentChanged(BuildingEditor::BuildingDocument *doc);
+    void documentAboutToClose(int index, BuildingEditor::BuildingDocument *doc);
 
     void currentDocumentTabChanged(int index);
     void documentTabCloseRequested(int index);
@@ -102,10 +102,10 @@ public:
     IsoObjectEditMode(QObject *parent = 0);
 
 signals:
-    void viewAddedForDocument(BuildingDocument *doc, BuildingIsoView *view);
+    void viewAddedForDocument(BuildingEditor::BuildingDocument *doc, BuildingEditor::BuildingIsoView *view);
 
 private slots:
-    void documentAdded(BuildingDocument *doc);
+    void documentAdded(BuildingEditor::BuildingDocument *doc);
 
 private:
     ObjectEditModePerDocumentStuff *createPerDocumentStuff(BuildingDocument *doc);

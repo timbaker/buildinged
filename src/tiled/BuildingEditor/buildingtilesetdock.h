@@ -73,15 +73,15 @@ private:
     typedef Tiled::Tile Tile;
 
 private slots:
-    void currentDocumentChanged(BuildingDocument *document);
+    void currentDocumentChanged(BuildingEditor::BuildingDocument *document);
 
     void currentTilesetChanged(int row);
     void tileSelectionChanged();
 
     void tilesetAdded(Tiled::Tileset *tileset);
     void tilesetAboutToBeRemoved(Tiled::Tileset *tileset);
-    void tilesetChanged(Tileset *tileset);
-    void tileLayerNameChanged(Tile *tile);
+    void tilesetChanged(Tiled::Tileset *tileset);
+    void tileLayerNameChanged(Tiled::Tile *tile);
 
     void layerSwitchToggled(bool checked);
     void autoSwitchLayerChanged(bool enabled);
