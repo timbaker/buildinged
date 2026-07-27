@@ -82,6 +82,9 @@ public:
     void setAutomappingDrawing(bool enabled);
 
 #ifdef ZOMBOID
+    QString userPath() const;
+    QString userPath(const QString &fileName) const;
+
     QString configPath() const;
     QString configPath(const QString &fileName) const;
 
@@ -116,6 +119,12 @@ public:
     bool showTileLayersPanel() const
     { return mShowTileLayersPanel; }
 
+    bool showTileSelection() const
+    { return mShowTileSelection; }
+
+    bool showInvisibleTiles() const
+    { return mShowInvisibleTiles; }
+
     QColor backgroundColor() const
     { return mBackgroundColor; }
 
@@ -124,6 +133,9 @@ public:
 
     QStringList worldedFiles() const
     { return mWorldEdFiles; }
+
+    QStringList tilePropertiesFiles() const
+    { return mTilePropertiesFiles; }
 
     bool highlightRoomUnderPointer() const
     { return mHighlightRoomUnderPointer; }
@@ -136,6 +148,18 @@ public:
 
     QColor tilesetBackgroundColor() const
     { return mTilesetBackgroundColor; }
+
+    QString thumbnailsDirectory() const
+    { return mThumbnailsDirectory; }
+
+    bool showCellBorder() const
+    { return mShowCellBorder; }
+
+    QString theme() const
+    { return mTheme; }
+
+    void applyTheme() const;
+
 #endif // ZOMBOID
 
     /**
@@ -157,12 +181,18 @@ public slots:
     void setShowLotFloorsOnly(bool show);
     void setShowMiniMap(bool show);
     void setShowTileLayersPanel(bool show);
+    void setShowTileSelection(bool show);
+    void setShowInvisibleTiles(bool show);
     void setBackgroundColor(const QColor &bgColor);
     void setShowAdjacentMaps(bool show);
     void setWorldEdFiles(const QStringList &fileNames);
+    void setTilePropertiesFiles(const QStringList &fileNames);
     void setHighlightRoomUnderPointer(bool highlight);
     void setEraserBrushSize(int newSize);
     void setTilesetBackgroundColor(const QColor& color);
+    void setThumbnailsDirectory(const QString &path);
+    void setShowCellBorder(bool show);
+    void setTheme(const QString &theme);
 #endif
 
 signals:
@@ -186,12 +216,17 @@ signals:
     void showMiniMapChanged(bool show);
     void miniMapWidthChanged(int width);
     void showTileLayersPanelChanged(bool show);
+    void showTileSelectionChanged(bool show);
+    void showInvisibleTilesChanged(bool show);
     void backgroundColorChanged(const QColor &color);
     void showAdjacentMapsChanged(bool show);
     void worldEdFilesChanged(const QStringList &fileNames);
+    void tilePropertiesFilesChanged(const QStringList &fileNames);
     void highlightRoomUnderPointerChanged(bool highlight);
     void eraserBrushSizeChanged(int newSize);
     void tilesetBackgroundColorChanged(const QColor &color);
+    void thumbnailsDirectoryChanged(const QString &dir);
+    void showCellBorderChanged(bool show);
 #endif
 
 private:
@@ -229,9 +264,15 @@ private:
     QColor mBackgroundColor;
     bool mShowAdjacentMaps;
     QStringList mWorldEdFiles;
+    QStringList mTilePropertiesFiles;
     bool mHighlightRoomUnderPointer;
     int mEraserBrushSize;
     QColor mTilesetBackgroundColor;
+    QString mThumbnailsDirectory;
+    bool mShowTileSelection;
+    bool mShowInvisibleTiles;
+    bool mShowCellBorder;
+    QString mTheme;
 #endif
 
     static Preferences *mInstance;

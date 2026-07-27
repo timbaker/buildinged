@@ -19,6 +19,7 @@
 #define BUILDINGTOOLS_H
 
 #include "buildingobjects.h" // need RoofType enum
+#include "furnituregroups.h"
 
 #include <QGraphicsItem>
 #include <QObject>
@@ -26,6 +27,8 @@
 #include <QRegion>
 #include <QSet>
 #include <QSize>
+
+class ActionManager;
 
 class QAction;
 class QGraphicsItem;
@@ -146,6 +149,9 @@ public:
     void clearDocument();
     void setEditor(BuildingBaseScene *editor);
     BuildingBaseScene *currentEditor() const { return mCurrentEditor; }
+
+public slots:
+    void shortcutEdited(QAction *action);
 
 signals:
     void currentEditorChanged();
@@ -291,6 +297,16 @@ protected:
     virtual void updateCursorObject() = 0;
     void setCursorObject(BuildingObject *object);
     virtual void placeObject() = 0;
+    virtual void startRightClickDrag(BuildingObject *object) {
+        Q_UNUSED(object)
+    }
+    virtual void rightClickDrag(BuildingObject *object, const QPointF& scenePos) {
+        Q_UNUSED(object)
+        Q_UNUSED(scenePos)
+    }
+    virtual void finishRightClickDrag(BuildingObject *object) {
+        Q_UNUSED(object)
+    };
     virtual void eyedrop(BuildingObject *object);
     virtual void updateStatusText() {}
 
@@ -310,7 +326,11 @@ protected:
     QRectF mCursorSceneRect;
     bool mEyedrop;
     bool mMouseDown;
+    bool mMouseMoved;
+    QPointF mStartScenePos;
+    QPoint mStartTilePos;
     bool mRightClicked;
+    BuildingObject *mRightClickDragObject;
     bool mPlaceOnRelease;
     bool mMouseOverObject;
 };
@@ -374,11 +394,14 @@ public:
 
     FurnitureTool();
 
-    void mouseMoveEvent(QGraphicsSceneMouseEvent *event);
+    void mouseMoveEvent(QGraphicsSceneMouseEvent *event) override;
 
-    void placeObject();
-    void updateCursorObject();
-    void eyedrop(BuildingObject *object);
+    void placeObject() override;
+    void updateCursorObject() override;
+    void startRightClickDrag(BuildingObject *object) override;
+    void rightClickDrag(BuildingObject *object, const QPointF& scenePos) override;
+    void finishRightClickDrag(BuildingObject *object) override;
+    void eyedrop(BuildingObject *object) override;
 
     void setCurrentTile(FurnitureTile *tile);
 
@@ -402,13 +425,16 @@ private:
     Orient calcOrient(const QPoint &tilePos)
     { return calcOrient(tilePos.x(), tilePos.y()); }
 
-    void updateStatusText();
+    FurnitureTile::FurnitureOrientation calcOrientFromScenePos(const QPointF &scenePos);
+
+    void updateStatusText() override;
 
 private:
     Q_DISABLE_COPY(FurnitureTool)
     static FurnitureTool *mInstance;
     ~FurnitureTool() { mInstance = 0; }
     FurnitureTile *mCurrentTile;
+    FurnitureTile::FurnitureOrientation mOriginalOrientation;
 };
 
 class RoofTool : public BaseTool
@@ -430,7 +456,7 @@ public slots:
     void activate();
     void deactivate();
 
-    void objectAboutToBeRemoved(BuildingObject *object);
+    void objectAboutToBeRemoved(BuildingEditor::BuildingObject *object);
 
 private:
     RoofObject *topmostRoofAt(const QPointF &scenePos);
@@ -488,7 +514,22 @@ public:
 private:
     Q_DISABLE_COPY(RoofShallowTool)
     static RoofShallowTool *mInstance;
-    ~RoofShallowTool() { mInstance = 0; }
+    ~RoofShallowTool() { mInstance = nullptr; }
+};
+
+/////
+
+class RoofSlope30Tool : public RoofTool
+{
+public:
+    static RoofSlope30Tool *instance();
+
+    RoofSlope30Tool();
+
+private:
+    Q_DISABLE_COPY(RoofSlope30Tool)
+    static RoofSlope30Tool *mInstance;
+    ~RoofSlope30Tool() { mInstance = nullptr; }
 };
 
 /////
@@ -503,7 +544,70 @@ public:
 private:
     Q_DISABLE_COPY(RoofCornerTool)
     static RoofCornerTool *mInstance;
-    ~RoofCornerTool() { mInstance = 0; }
+    ~RoofCornerTool() { mInstance = nullptr; }
+};
+
+/////
+
+class RoofCornerSlope30Tool : public RoofTool
+{
+public:
+    static RoofCornerSlope30Tool *instance();
+
+    RoofCornerSlope30Tool();
+
+private:
+    Q_DISABLE_COPY(RoofCornerSlope30Tool)
+    static RoofCornerSlope30Tool *mInstance;
+    ~RoofCornerSlope30Tool() { mInstance = nullptr; }
+};
+
+/////
+
+class BasementAccessTool : public BaseTool
+{
+    Q_OBJECT
+public:
+    static BasementAccessTool *instance();
+
+    BasementAccessTool();
+
+    void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
+    void mouseMoveEvent(QGraphicsSceneMouseEvent *event) override;
+    void mouseReleaseEvent(QGraphicsSceneMouseEvent *event) override;
+
+public slots:
+    void activate() override;
+    void deactivate() override;
+
+private:
+    enum Mode {
+        NoMode,
+        Moving,
+        CancelMoving
+    };
+
+    bool isMouseOverObject(const QPointF &pos) const;
+
+    void startMoving();
+    void updateMovingItems(const QPointF &pos,
+                           Qt::KeyboardModifiers modifiers);
+    void finishMoving(const QPointF &pos);
+    void cancelMoving();
+
+    void updateStatusText();
+
+private:
+    Q_DISABLE_COPY(BasementAccessTool)
+    static BasementAccessTool *mInstance;
+    ~BasementAccessTool() { mInstance = 0; }
+
+    Mode mMode;
+    bool mMouseDown;
+    bool mMouseOverObject;
+    bool mClickedObject;
+    QPointF mStartScenePos;
+    QPoint mDragOffset;
 };
 
 /////

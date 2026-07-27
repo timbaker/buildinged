@@ -19,9 +19,11 @@
 
 #include "building.h"
 #include "buildingfloor.h"
+#include "buildingfurniturefile.h"
 #include "buildingobjects.h"
 #include "buildingtemplates.h"
 #include "buildingtiles.h"
+#include "buildingtilesfile.h"
 #include "furnituregroups.h"
 
 #include "qtlockedfile.h"
@@ -35,20 +37,6 @@ using namespace SharedTools;
 #include <QXmlStreamReader>
 
 using namespace BuildingEditor;
-
-// version="1.0"
-#define VERSION1 1
-
-// version="2"
-// BuildingTileEntry rewrite
-// added FurnitureTiles::mCorners
-#define VERSION2 2
-
-// version="3"
-// Added <properties> for the in-game map
-#define VERSION3 3
-
-#define VERSION_LATEST VERSION3
 
 namespace BuildingEditor {
 
@@ -82,6 +70,7 @@ DECLARE_FAKE_CATEGORY(GrimeWall)
 DECLARE_FAKE_CATEGORY(RoofCaps)
 DECLARE_FAKE_CATEGORY(RoofSlopes)
 DECLARE_FAKE_CATEGORY(RoofTops)
+DECLARE_FAKE_CATEGORY(Ceiling)
 
 #define NEW_FAKE_CATEGORY(C) \
     new Fake_##C(this);
@@ -107,13 +96,15 @@ public:
         mCatRoofCaps = NEW_FAKE_CATEGORY(RoofCaps);
         mCatRoofSlopes = NEW_FAKE_CATEGORY(RoofSlopes);
         mCatRoofTops = NEW_FAKE_CATEGORY(RoofTops);
+        mCatCeiling = NEW_FAKE_CATEGORY(Ceiling);
 
         mCategories << mCatEWalls << mCatIWalls << mCatEWallTrim << mCatIWallTrim
                        << mCatFloors << mCatDoors
                        << mCatDoorFrames << mCatWindows << mCatCurtains
                        << mCatShutters << mCatStairs
                        << mCatGrimeFloor << mCatGrimeWall
-                       << mCatRoofCaps << mCatRoofSlopes << mCatRoofTops;
+                       << mCatRoofCaps << mCatRoofSlopes << mCatRoofTops
+                       << mCatCeiling;
 
         foreach (BuildingTileCategory *category, mCategories) {
             mCategoryByName[category->name()] = category;
@@ -232,6 +223,7 @@ public:
     BuildingTileCategory *catRoofCaps() const { return mCatRoofCaps; }
     BuildingTileCategory *catRoofSlopes() const { return mCatRoofSlopes; }
     BuildingTileCategory *catRoofTops() const { return mCatRoofTops; }
+    BuildingTileCategory *catCeiling() const { return mCatCeiling; }
 
     QList<BuildingTileCategory*> mCategories;
     QMap<QString,BuildingTileCategory*> mCategoryByName;
@@ -260,6 +252,7 @@ public:
     Fake_RoofCaps *mCatRoofCaps;
     Fake_RoofSlopes *mCatRoofSlopes;
     Fake_RoofTops *mCatRoofTops;
+    Fake_Ceiling *mCatCeiling;
 
     QMap<BuildingTileCategory*,bool> mUsedCategories;
 };
@@ -286,6 +279,7 @@ DECLARE_FAKE_GETTILE(GrimeWall)
 DECLARE_FAKE_GETTILE(RoofCaps)
 DECLARE_FAKE_GETTILE(RoofSlopes)
 DECLARE_FAKE_GETTILE(RoofTops)
+DECLARE_FAKE_GETTILE(Ceiling)
 
 } // namespace BuildingEditor
 
@@ -325,6 +319,7 @@ private:
 
     BuildingFloor *readFloor();
     void decodeCSVFloorData(BuildingFloor *floor, const QString &text);
+    void decodeCSVSquareProperties(BuildingFloor *floor, const QString &text);
     Room *getRoom(BuildingFloor *floor, int x, int y, int index);
 
     void decodeCSVTileData(BuildingFloor *floor, const QString &layerName, const QString &text);
@@ -366,6 +361,7 @@ private:
     QSet<FurnitureTiles*> deadFurniture;
 
     BuildingTileEntry *fixEntry(BuildingTileEntry *entry);
+    int buildingTilesFileVersion() const;
     QMap<BuildingTileEntry*,BuildingTileEntry*> fixedEntries;
     QSet<BuildingTileEntry*> deadEntries;
 
@@ -430,10 +426,10 @@ Building *BuildingReaderPrivate::readBuilding()
     const QXmlStreamAttributes atts = xml.attributes();
     const QString versionString = atts.value(QLatin1String("version")).toString();
     if (versionString == QLatin1String("1.0"))
-        mVersion = VERSION1;
+        mVersion = BuildingReader::VERSION1;
     else {
         mVersion = versionString.toInt();
-        if (mVersion <= 0 || mVersion > VERSION_LATEST) {
+        if (mVersion <= 0 || mVersion > BuildingReader::VERSION_LATEST) {
             xml.raiseError(tr("Unknown building version '%1'").arg(versionString));
             return 0;
         }
@@ -473,7 +469,7 @@ Building *BuildingReaderPrivate::readBuilding()
     FakeBuildingTilesMgr *btiles = &mFakeBuildingTilesMgr;
     for (int i = 0; i < Building::TileCount; i++) {
         QString entryString = atts.value(mBuilding->enumToString(i)).toString();
-        if (mVersion == VERSION1) {
+        if (mVersion == BuildingReader::VERSION1) {
             if (i == Building::ExteriorWall)
                 entryString = version1TileToEntry(btiles->catEWalls(), entryString);
             else if (i == Building::Door)
@@ -486,6 +482,16 @@ Building *BuildingReaderPrivate::readBuilding()
                 entryString = version1TileToEntry(btiles->catStairs(), entryString);
         }
         mBuilding->setTile(i, getEntry(entryString)->asCategory(mBuilding->categoryEnum(i)));
+    }
+
+    QString sBasementAccess = QStringLiteral("BasementAccess");
+    if (mBuilding->properties().contains(sBasementAccess)) {
+        QString value = mBuilding->properties().value(sBasementAccess);
+        BasementAccess ba;
+        if (ba.fromString(value)) {
+            mBuilding->setBasementAccess(ba);
+            mBuilding->properties().remove(sBasementAccess);
+        }
     }
 
     // Clean up in case of error
@@ -504,7 +510,7 @@ FurnitureTiles *BuildingReaderPrivate::readFurnitureTiles()
     const QXmlStreamAttributes atts = xml.attributes();
     bool corners = false;
     FurnitureTiles::FurnitureLayer layer = FurnitureTiles::LayerFurniture;
-    if (mVersion >= VERSION2) {
+    if (mVersion >= BuildingReader::VERSION2) {
         QString cornersString = atts.value(QLatin1String("corners")).toString();
         if (cornersString.length() && !booleanFromString(cornersString, corners))
             return 0;
@@ -550,8 +556,7 @@ FurnitureTile *BuildingReaderPrivate::readFurnitureTile(FurnitureTiles *ftiles)
 
     const QXmlStreamAttributes atts = xml.attributes();
     QString orientString = atts.value(QLatin1String("orient")).toString();
-    FurnitureTile::FurnitureOrientation orient =
-            FurnitureGroups::orientFromString(orientString);
+    FurnitureTile::FurnitureOrientation orient = BuildingFurnitureFile::orientFromString(orientString);
     if (orient == FurnitureTile::FurnitureUnknown) {
         xml.raiseError(tr("invalid furniture tile orientation '%1'").arg(orientString));
         return 0;
@@ -564,7 +569,7 @@ FurnitureTile *BuildingReaderPrivate::readFurnitureTile(FurnitureTiles *ftiles)
     FurnitureTile *ftile = new FurnitureTile(ftiles, orient);
     ftile->setAllowGrime(grime);
 
-    if (mVersion == VERSION1) {
+    if (mVersion == BuildingReader::VERSION1) {
         // v1 didn't have FurnitureTiles::mCorners, it had either W/N/E/S
         // or SW/NW/NE/SE.
         if (FurnitureTile::isCornerOrient(orient) && !ftiles->hasCorners())
@@ -618,7 +623,7 @@ BuildingTileEntry *BuildingReaderPrivate::readTileEntry()
     BuildingTileCategory *category = mFakeBuildingTilesMgr.category(categoryName);
     if (!category) {
         xml.raiseError(tr("unknown category '%1'").arg(categoryName));
-        return 0;
+        return nullptr;
     }
 
     BuildingTileEntry *entry = new BuildingTileEntry(category);
@@ -630,15 +635,18 @@ BuildingTileEntry *BuildingReaderPrivate::readTileEntry()
             const QString enumName = atts.value(QLatin1String("enum")).toString();
             int e = category->enumFromString(enumName);
             if (e == BuildingTileCategory::Invalid) {
+                delete entry;
                 xml.raiseError(tr("Unknown %1 enum '%2'").arg(categoryName).arg(enumName));
-                return 0;
+                return nullptr;
             }
             const QString tileName = atts.value(QLatin1String("tile")).toString();
             BuildingTile *btile = mFakeBuildingTilesMgr.get(tileName);
 
             QPoint offset;
-            if (!readPoint(QLatin1String("offset"), offset))
-                return 0;
+            if (!readPoint(QLatin1String("offset"), offset)) {
+                delete entry;
+                return nullptr;
+            }
 
             entry->mTiles[e] = btile;
             entry->mOffsets[e] = offset;
@@ -737,12 +745,20 @@ Room *BuildingReaderPrivate::readRoom()
     for (int i = 0; i < Room::TileCount; i++)
         tiles[i] = atts.value(Room::enumToString(i)).toString();
 
-    if (mVersion == VERSION1) {
-        FakeBuildingTilesMgr *btiles = &mFakeBuildingTilesMgr;
+    FakeBuildingTilesMgr *btiles = &mFakeBuildingTilesMgr;
+    if (mVersion == BuildingReader::VERSION1) {
         tiles[Room::InteriorWall] = version1TileToEntry(btiles->catIWalls(),
                                                         tiles[Room::InteriorWall]);
         tiles[Room::Floor] = version1TileToEntry(btiles->catFloors(),
                                                  tiles[Room::Floor]);
+    }
+    if (mVersion < BuildingReader::VERSION4) {
+        if (internalName.compare(QLatin1String("emptyoutside"), Qt::CaseInsensitive) == 0) {
+            // Skip emptyoutside rooms (usually balconies).
+        } else {
+            tiles[Room::Ceiling] = version1TileToEntry(btiles->catCeiling(),
+                                                       QLatin1String("ceilings_01_0"));
+        }
     }
 
     Room *room = new Room();
@@ -750,8 +766,9 @@ Room *BuildingReaderPrivate::readRoom()
     room->internalName = internalName;
     QStringList rgb = color.split(QLatin1Char(' '), Qt::SkipEmptyParts);
     room->Color = qRgb(rgb[0].toInt(), rgb[1].toInt(), rgb[2].toInt());
-    for (int i = 0; i < Room::TileCount; i++)
+    for (int i = 0; i < Room::TileCount; i++) {
         room->setTile(i, getEntry(tiles[i]));
+    }
 
     xml.skipCurrentElement();
 
@@ -774,6 +791,14 @@ BuildingFloor *BuildingReaderPrivate::readFloor()
                     break;
                 if (xml.isCharacters() && !xml.isWhitespace()) {
                     decodeCSVFloorData(floor, xml.text().toString());
+                }
+            }
+        } else if (xml.name() == QLatin1String("attributes")) {
+            while (xml.readNext() != QXmlStreamReader::Invalid) {
+                if (xml.isEndElement())
+                    break;
+                if (xml.isCharacters() && !xml.isWhitespace()) {
+                    decodeCSVSquareProperties(floor, xml.text().toString());
                 }
             }
         } else if (xml.name() == QLatin1String("tiles")) {
@@ -828,7 +853,7 @@ BuildingObject *BuildingReaderPrivate::readObject(BuildingFloor *floor)
     }
 
     FakeBuildingTilesMgr *btiles = &mFakeBuildingTilesMgr;
-    if (mVersion == VERSION1) {
+    if (mVersion == BuildingReader::VERSION1) {
         // tile name -> BuildingTileEntry
         if (type == QLatin1String("door")) {
             tile = version1TileToEntry(btiles->catDoors(), tile);
@@ -846,7 +871,7 @@ BuildingObject *BuildingReaderPrivate::readObject(BuildingFloor *floor)
         Door *door = new Door(floor, x, y, dir);
         door->setTile(getEntry(tile)->asDoor());
         QString frame = atts.value(QLatin1String("FrameTile")).toString();
-        if (mVersion == VERSION1)
+        if (mVersion == BuildingReader::VERSION1)
             frame = version1TileToEntry(btiles->catDoorFrames(), frame);
         door->setTile(getEntry(frame)->asDoorFrame(), 1);
         object = door;
@@ -869,8 +894,7 @@ BuildingObject *BuildingReaderPrivate::readObject(BuildingFloor *floor)
             return 0;
         }
         QString orientString = atts.value(QLatin1String("orient")).toString();
-        FurnitureTile::FurnitureOrientation orient =
-                FurnitureGroups::orientFromString(orientString);
+        FurnitureTile::FurnitureOrientation orient = BuildingFurnitureFile::orientFromString(orientString);
         if (orient == FurnitureTile::FurnitureUnknown) {
             xml.raiseError(tr("Unknown furniture orientation '%1'").arg(orientString));
             delete furniture;
@@ -1081,7 +1105,7 @@ void BuildingReaderPrivate::decodeCSVFloorData(BuildingFloor *floor,
             floor->SetRoomAt(x, y, 0);
         } else {
             bool conversionOk;
-            uint index = text.mid(start, end - start).toUInt(&conversionOk);
+            uint index = text.midRef(start, end - start).toUInt(&conversionOk);
             if (!conversionOk) {
                 xml.raiseError(
                         tr("Unable to parse room at (%1,%2) on floor %3")
@@ -1108,7 +1132,7 @@ void BuildingReaderPrivate::decodeCSVFloorData(BuildingFloor *floor,
         floor->SetRoomAt(x, y, 0);
     } else {
         bool conversionOk;
-        uint index = text.mid(start, end - start).toUInt(&conversionOk);
+        uint index = text.midRef(start, end - start).toUInt(&conversionOk);
         if (!conversionOk) {
             xml.raiseError(
                     tr("Unable to parse room at (%1,%2) on floor %3")
@@ -1116,6 +1140,76 @@ void BuildingReaderPrivate::decodeCSVFloorData(BuildingFloor *floor,
             return;
         }
         floor->SetRoomAt(x, y, getRoom(floor, x, y, index));
+    }
+}
+
+void BuildingReaderPrivate::decodeCSVSquareProperties(BuildingFloor *floor, const QString &text)
+{
+    int start = 0;
+    int end = text.length();
+    while (start < end && text.at(start).isSpace()) {
+        start++;
+    }
+    int x = 0, y = 0;
+    const QChar sep(QLatin1Char(','));
+    const QChar nullChar(QLatin1Char('0'));
+    Tiled::PropertiesGrid *propertiesGrid = floor->squarePropertiesGrid();
+    Tiled::Properties properties;
+    Tiled::Properties emptyProperties;
+    const QStringList &SQUARE_PROPERTIES = getSquarePropertyNames();
+    while ((end = text.indexOf(sep, start, Qt::CaseSensitive)) != -1) {
+        if ((end - start == 1) && (text.at(start) == nullChar)) {
+            propertiesGrid->replace(x, y, emptyProperties);
+        } else {
+            bool conversionOk;
+            uint bits = text.midRef(start, end - start).toUInt(&conversionOk, 16);
+            if (!conversionOk) {
+                xml.raiseError(
+                        tr("Unable to parse <attributes> at (%1,%2) on floor %3")
+                               .arg(x + 1).arg(y + 1).arg(floor->level()));
+                return;
+            }
+            properties.clear();
+            for (int i = 0; i < SQUARE_PROPERTIES.size(); i++) {
+                if (bits & (1 << i)) {
+                    properties.insert(SQUARE_PROPERTIES[i], QString());
+                }
+            }
+            propertiesGrid->replace(x, y, properties);
+        }
+        start = end + 1;
+        if (++x == floor->width()) {
+            ++y;
+            if (y >= floor->height()) {
+                xml.raiseError(tr("Corrupt <attributes> for floor %1")
+                               .arg(floor->level()));
+                return;
+            }
+            x = 0;
+        }
+    }
+    end = text.size();
+    while (start < end && text.at(end-1).isSpace()) {
+        end--;
+    }
+    if ((end - start == 1) && (text.at(start) == nullChar)) {
+        propertiesGrid->replace(x, y, emptyProperties);
+    } else {
+        bool conversionOk;
+        uint bits = text.midRef(start, end - start).toUInt(&conversionOk, 16);
+        if (!conversionOk) {
+            xml.raiseError(
+                    tr("Unable to parse <attributes> at (%1,%2) on floor %3")
+                           .arg(x + 1).arg(y + 1).arg(floor->level()));
+            return;
+        }
+        properties.clear();
+        for (int i = 0; i < SQUARE_PROPERTIES.size(); i++) {
+            if (bits & (1 << i)) {
+                properties.insert(SQUARE_PROPERTIES[i], QString());
+            }
+        }
+        propertiesGrid->replace(x, y, properties);
     }
 }
 
@@ -1146,7 +1240,7 @@ void BuildingReaderPrivate::decodeCSVTileData(BuildingFloor *floor,
             ; //floor->setGrime(layerName, x, y, QString());
         } else {
             bool conversionOk;
-            uint index = text.mid(start, end - start).toUInt(&conversionOk);
+            uint index = text.midRef(start, end - start).toUInt(&conversionOk);
             if (!conversionOk) {
                 xml.raiseError(
                         tr("Unable to parse user-tile at (%1,%2) on floor %3")
@@ -1173,7 +1267,7 @@ void BuildingReaderPrivate::decodeCSVTileData(BuildingFloor *floor,
         ; //floor->setGrime(layerName, x, y, QString());
     } else {
         bool conversionOk;
-        uint index = text.mid(start, end - start).toUInt(&conversionOk);
+        uint index = text.midRef(start, end - start).toUInt(&conversionOk);
         if (!conversionOk) {
             xml.raiseError(
                     tr("Unable to parse user-tile at (%1,%2) on floor %3")
@@ -1197,7 +1291,11 @@ QString BuildingReaderPrivate::getUserTile(BuildingFloor *floor, int x, int y, i
 
 void BuildingReaderPrivate::readUnknownElement()
 {
-    qDebug() << "Unknown element (fixme):" << xml.name();
+    qDebug() << tr("Unknown element \"%3\"\n\nLine %1, column %2 %4")
+                .arg(xml.lineNumber())
+                .arg(xml.columnNumber())
+                .arg(xml.name())
+                .arg(mPath);
     xml.skipCurrentElement();
 }
 
@@ -1334,7 +1432,7 @@ BuildingTileEntry *BuildingReaderPrivate::fixEntry(BuildingTileEntry *entry)
                 entry->setTile(i, BuildingTilesMgr::instance()->get(btile->name()));
             }
         }
-        if (BuildingTileEntry *match = category->findMatch(entry)) {
+        if (BuildingTileEntry *match = category->findMatchForVersion(entry, buildingTilesFileVersion())) {
             fixedEntries[entry] = match;
             fixedEntries[match] = match;
             deadEntries.insert(entry);
@@ -1343,4 +1441,18 @@ BuildingTileEntry *BuildingReaderPrivate::fixEntry(BuildingTileEntry *entry)
         }
     }
     return fixedEntries[entry];
+}
+
+int BuildingReaderPrivate::buildingTilesFileVersion() const
+{
+    if (mVersion == BuildingReader::VERSION5) { // window-frame shapes 1-16
+        return BuildingTilesFile::VERSION3;
+    }
+    if (mVersion == BuildingReader::VERSION6) { // 30-degree roofs
+        return BuildingTilesFile::VERSION3; // no new version of BuildingTilesFile!
+    }
+    if (mVersion == BuildingReader::VERSION7) { // window-frame shapes 17-19
+        return BuildingTilesFile::VERSION4;
+    }
+    return BuildingTilesFile::VERSION_LATEST;
 }

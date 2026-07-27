@@ -70,6 +70,7 @@ TileEditModeToolBar::TileEditModeToolBar(QWidget *parent) :
     addAction(BuildingEditorWindow::instance()->actionIface()->actionDrawTiles);
     addAction(BuildingEditorWindow::instance()->actionIface()->actionSelectTiles);
     addAction(BuildingEditorWindow::instance()->actionIface()->actionPickTiles);
+    addAction(BuildingEditorWindow::instance()->actionIface()->actionFloorGrime);
     addSeparator();
     addWidget(mFloorLabel);
     addAction(BuildingEditorWindow::instance()->actionIface()->actionUpLevel);
@@ -310,6 +311,7 @@ void TileEditMode::readSettings(QSettings &settings)
     settings.beginGroup(QLatin1String("TileEditMode"));
     mMainWindow->readSettings(settings);
     mFurnitureDock->readSettings(settings);
+    mTilesetDock->readSettings(settings);
     settings.endGroup();
 }
 
@@ -318,6 +320,7 @@ void TileEditMode::writeSettings(QSettings &settings)
     settings.beginGroup(QLatin1String("TileEditMode"));
     mMainWindow->writeSettings(settings);
     mFurnitureDock->writeSettings(settings);
+    mTilesetDock->writeSettings(settings);
     settings.endGroup();
 }
 

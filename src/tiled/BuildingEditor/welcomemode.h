@@ -82,6 +82,10 @@ public slots:
     void editedMapsDirectory();
     void selectionChanged();
 
+    void findTextEdited(const QString& text);
+    void findPrev();
+    void findNext();
+
     void onMapImageChanged(MapImage *mapImage);
     void mapImageFailedToLoad(MapImage *mapImage);
 
@@ -93,10 +97,16 @@ public slots:
     void legendIndexChanged(int index);
     void legendTextChanged(const QString &text);
 
+    void roomToneIndexChanged(int index);
+    void roomToneTextChanged(const QString &text);
+
 private:
     void setAutoSaveFiles();
     QString currentFilePath();
     void synchLegendCombo();
+    void synchRoomToneCombo();
+    bool readRoomToneTxt();
+    void updateFindButtons();
 
 private:
     Ui::WelcomeMode *ui;
@@ -109,7 +119,9 @@ private:
     QList<WelcomeModeNS::LinkItem*> mRecentItems;
     QList<WelcomeModeNS::LinkItem*> mAutoSaveItems;
     QStringList mLegendStrings;
+    QStringList mRoomToneStrings;
     bool mSynchLegend = false;
+    bool mSynchRoomTone = false;
 };
 
 } // namespace BuildingEditor

@@ -44,6 +44,8 @@ public:
     
 private slots:
     void tileSelectionChanged();
+    void clearTile();
+    void randomTile();
     void chooseTile();
     void bbclicked(QAbstractButton *button);
 
@@ -51,7 +53,10 @@ private:
     void synchUI();
     void setTilePixmap();
     BuildingTileEntry *selectedTile();
-    void accept();
+    void saveSettings();
+    void readSettings();
+    void accept() override;
+    void reject() override;
     void apply();
 
 private:

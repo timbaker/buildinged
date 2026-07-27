@@ -84,8 +84,13 @@ public:
     void setCategoryBounds(const QModelIndex &index, const QRect &bounds);
     void setCategoryBounds(Tile *tile, const QRect &bounds);
     void setCategoryBounds(int tileIndex, const QRect &bounds);
+    void clearCategoryBounds(const QModelIndex &index);
     QRect categoryBounds(const QModelIndex &index) const;
     QRect categoryBounds(Tile *tile) const;
+
+    void setOverlayTile(const QModelIndex &index, Tiled::Tile *tile);
+    Tiled::Tile *overlayTile(const QModelIndex &index) const;
+    Tiled::Tile *overlayTile(Tiled::Tile *tile) const;
 
     void scaleChanged(qreal scale);
 
@@ -107,8 +112,15 @@ public:
 
     void setColumnCount(int count);
 
+    void setDropCoords(const QModelIndex &dropIndex)
+    { mDropIndex = dropIndex; }
+
+    QModelIndex dropIndex() const
+    { return mDropIndex; }
+
 signals:
     void tileDropped(const QString &tilesetName, int tileId);
+    void tileDroppedAt(const QString &tilesetName, int tileId, int row, int column, const QModelIndex &parent);
 
 private:
     class Item
@@ -116,6 +128,7 @@ private:
     public:
         Item() :
             mTile(nullptr),
+            mOverlayTile(nullptr),
             mUserData(nullptr),
             mItemHeightProperty(-1),
             mSurfaceProperty(-1)
@@ -124,6 +137,7 @@ private:
 
         Item(Tiled::Tile *tile, void *userData = nullptr) :
             mTile(tile),
+            mOverlayTile(nullptr),
             mUserData(userData),
             mItemHeightProperty(-1),
             mSurfaceProperty(-1)
@@ -132,6 +146,7 @@ private:
         }
         Item(const QString &tilesetName) :
             mTile(nullptr),
+            mOverlayTile(nullptr),
             mUserData(nullptr),
             mTilesetName(tilesetName),
             mItemHeightProperty(-1),
@@ -142,6 +157,7 @@ private:
 
         int mIndex;
         Tiled::Tile *mTile;
+        Tiled::Tile *mOverlayTile;
         void *mUserData;
         QString mTilesetName;
         QString mLabel;
@@ -168,11 +184,13 @@ private:
     QMap<Tiled::Tile*,Item*> mTileToItem;
     QMap<void*,Item*> mUserDataToItem;
     static QString mMimeType;
+    static QString mGridMimeType;
     bool mShowHeaders;
     bool mShowLabels;
     bool mHighlightLabelledItems;
     bool mShowEmptyTilesAsMissing;
     int mColumnCount;
+    QModelIndex mDropIndex;
 };
 
 class MixedTilesetView : public QTableView
@@ -182,14 +200,19 @@ public:
     explicit MixedTilesetView(QWidget *parent = 0);
     explicit MixedTilesetView(Zoomable *zoomable, QWidget *parent = 0);
 
-    QSize sizeHint() const;
+    QSize sizeHint() const override;
 
-    void mousePressEvent(QMouseEvent *event);
-    void mouseMoveEvent(QMouseEvent *event);
-    void mouseReleaseEvent(QMouseEvent *event);
-    void wheelEvent(QWheelEvent *event);
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
 
-    bool viewportEvent(QEvent *event);
+    void dragMoveEvent(QDragMoveEvent *event) override;
+    void dragLeaveEvent(QDragLeaveEvent *event) override;
+    void dropEvent(QDropEvent *event) override;
+
+    void wheelEvent(QWheelEvent *event) override;
+
+    bool viewportEvent(QEvent *event) override;
 
     MixedTilesetModel *model() const
     { return mModel; }
@@ -202,7 +225,7 @@ public:
     bool mouseDown() const
     { return mMousePressed; }
 
-    void contextMenuEvent(QContextMenuEvent *event);
+    void contextMenuEvent(QContextMenuEvent *event) override;
     void setContextMenu(QMenu *menu)
     { mContextMenu = menu; }
 

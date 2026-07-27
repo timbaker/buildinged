@@ -18,6 +18,7 @@
 #include "buildingeditorwindow.h"
 #include "ui_buildingeditorwindow.h"
 
+#include "attributeeditmode.h"
 #include "building.h"
 #include "buildingdocument.h"
 #include "buildingdocumentmgr.h"
@@ -28,6 +29,7 @@
 #include "buildingpreferences.h"
 #include "buildingpreferencesdialog.h"
 #include "buildingpropertiesdialog.h"
+#include "buildingreader.h"
 #include "buildingundoredo.h"
 #include "buildingisoview.h"
 #include "buildingorthoview.h"
@@ -38,37 +40,38 @@
 #include "buildingtiletools.h"
 #include "buildingtmx.h"
 #include "buildingtools.h"
-#include "categorydock.h"
 #include "choosebuildingtiledialog.h"
 #include "furnituregroups.h"
-#include "furnitureview.h"
-#include "horizontallinedelegate.h"
 #include "listofstringsdialog.h"
-#include "mixedtilesetview.h"
 #include "newbuildingdialog.h"
 #include "objecteditmode.h"
 #include "resizedialog.h"
 #include "roomsdialog.h"
-#include "simplefile.h"
 #include "templatefrombuildingdialog.h"
 #include "tileeditmode.h"
+#include "tiledeffile.h"
 #include "welcomemode.h"
 
 #include "fancytabwidget.h"
 #include "utils/stylehelper.h"
 
+#include "shortcut/actionmanager.h"
+#include "shortcut/keyboardshortcutwindow.h"
+
 #include "preferences.h"
-#include "tilemetainfodialog.h"
 #include "tilemetainfomgr.h"
 #include "tilesetmanager.h"
 #include "utils.h"
 #include "zoomable.h"
 #include "zprogress.h"
 
+#include "maplevel.h"
+#include "maprenderer.h"
 #include "tile.h"
 #include "tileset.h"
 
 #include <QBitmap>
+#include <QClipboard>
 #include <QCloseEvent>
 #include <QComboBox>
 #include <QDebug>
@@ -103,9 +106,12 @@ EditorWindowPerDocumentStuff::EditorWindowPerDocumentStuff(BuildingDocument *doc
     mEditMode(IsoObjectMode),
     mPrevObjectTool(PencilTool::instance()),
     mPrevTileTool(DrawTileTool::instance()),
+    mPrevAttributeTool(SelectTileTool::instance()),
     mMissingTilesetsReported(false),
-    mIsoView(0),
-    mTileView(0)
+    mIsoView(nullptr),
+    mTileView(nullptr),
+    mAttributeView(nullptr),
+    mAutoSaveTimer(this)
 {
     connect(document()->undoStack(), &QUndoStack::cleanChanged, this, &EditorWindowPerDocumentStuff::autoSaveCheck);
     connect(document()->undoStack(), &QUndoStack::indexChanged, this, &EditorWindowPerDocumentStuff::autoSaveCheck);
@@ -134,27 +140,41 @@ void EditorWindowPerDocumentStuff::deactivate()
 
 void EditorWindowPerDocumentStuff::toOrthoObject()
 {
-    if (mEditMode == TileMode) {
-        mIsoView->centerOn(mTileView->mapToScene(mTileView->viewport()->rect().center()));
-        mIsoView->zoomable()->setScale(mTileView->zoomable()->scale());
+    if (mEditMode == EditMode::IsoObjectMode) {
+        mIsoViewsCenter = mIsoView->mapToScene(mTileView->viewport()->rect().center());
+        mIsoViewsZoom = mIsoView->zoomable()->scale();
     }
-    mEditMode = OrthoObjectMode;
-    mPrevObjectMode = OrthoObjectMode;
+    if (mEditMode == EditMode::TileMode) {
+        mIsoViewsCenter = mTileView->mapToScene(mTileView->viewport()->rect().center());
+        mIsoViewsZoom = mTileView->zoomable()->scale();
+    }
+    if (mEditMode == EditMode::AttributeMode) {
+        mIsoViewsCenter = mAttributeView->mapToScene(mAttributeView->viewport()->rect().center());
+        mIsoViewsZoom = mAttributeView->zoomable()->scale();
+    }
+    mEditMode = EditMode::OrthoObjectMode;
+    mPrevObjectMode = EditMode::OrthoObjectMode;
 }
 
 void EditorWindowPerDocumentStuff::toIsoObject()
 {
-    if (mEditMode == TileMode) {
-        mIsoView->centerOn(mTileView->mapToScene(mTileView->viewport()->rect().center()));
-        mIsoView->zoomable()->setScale(mTileView->zoomable()->scale());
+    if (mEditMode == EditMode::TileMode) {
+        mIsoViewsCenter = mTileView->mapToScene(mTileView->viewport()->rect().center());
+        mIsoViewsZoom = mTileView->zoomable()->scale();
     }
-    mEditMode = IsoObjectMode;
-    mPrevObjectMode = IsoObjectMode;
+    if (mEditMode == EditMode::AttributeMode) {
+        mIsoViewsCenter = mAttributeView->mapToScene(mAttributeView->viewport()->rect().center());
+        mIsoViewsZoom = mAttributeView->zoomable()->scale();
+    }
+    mIsoView->centerOn(mIsoViewsCenter);
+    mIsoView->zoomable()->setScale(mIsoViewsZoom);
+    mEditMode = EditMode::IsoObjectMode;
+    mPrevObjectMode = EditMode::IsoObjectMode;
 }
 
 void EditorWindowPerDocumentStuff::toObject()
 {
-    if (mPrevObjectMode == OrthoObjectMode)
+    if (mPrevObjectMode == EditMode::OrthoObjectMode)
         toOrthoObject();
     else
         toIsoObject();
@@ -162,14 +182,39 @@ void EditorWindowPerDocumentStuff::toObject()
 
 void EditorWindowPerDocumentStuff::toTile()
 {
-    mTileView->centerOn(mIsoView->mapToScene(mIsoView->viewport()->rect().center()));
-    mTileView->zoomable()->setScale(mIsoView->zoomable()->scale());
-    mEditMode = TileMode;
+    if (mEditMode == EditMode::IsoObjectMode) {
+        mIsoViewsCenter = mIsoView->mapToScene(mIsoView->viewport()->rect().center());
+        mIsoViewsZoom = mIsoView->zoomable()->scale();
+    }
+    if (mEditMode == EditMode::AttributeMode) {
+        mIsoViewsCenter = mAttributeView->mapToScene(mAttributeView->viewport()->rect().center());
+        mIsoViewsZoom = mAttributeView->zoomable()->scale();
+    }
+    mTileView->centerOn(mIsoViewsCenter);
+    mTileView->zoomable()->setScale(mIsoViewsZoom);
+    mEditMode = EditMode::TileMode;
+}
+
+void EditorWindowPerDocumentStuff::toAttribute()
+{
+    if (mEditMode == EditMode::IsoObjectMode) {
+        mIsoViewsCenter = mIsoView->mapToScene(mIsoView->viewport()->rect().center());
+        mIsoViewsZoom = mIsoView->zoomable()->scale();
+    }
+    if (mEditMode == EditMode::TileMode) {
+        mIsoViewsCenter = mTileView->mapToScene(mTileView->viewport()->rect().center());
+        mIsoViewsZoom = mTileView->zoomable()->scale();
+    }
+    mAttributeView->centerOn(mIsoViewsCenter);
+    mAttributeView->zoomable()->setScale(mIsoViewsZoom);
+    mEditMode = EditMode::AttributeMode;
 }
 
 void EditorWindowPerDocumentStuff::rememberTool()
 {
-    if (isTile())
+    if (isAttribute())
+        mPrevAttributeTool = ToolManager::instance()->currentTool();
+    else if (isTile())
         mPrevTileTool = ToolManager::instance()->currentTool();
     else if (isObject())
         mPrevObjectTool = ToolManager::instance()->currentTool();
@@ -177,7 +222,9 @@ void EditorWindowPerDocumentStuff::rememberTool()
 
 void EditorWindowPerDocumentStuff::restoreTool()
 {
-    if (isTile() && mPrevTileTool && mPrevTileTool->action()->isEnabled())
+    if (isAttribute() && mPrevAttributeTool && mPrevAttributeTool->action()->isEnabled())
+        mPrevAttributeTool->makeCurrent();
+    else if (isTile() && mPrevTileTool && mPrevTileTool->action()->isEnabled())
         mPrevTileTool->makeCurrent();
     else if (isObject() && mPrevObjectTool && mPrevObjectTool->action()->isEnabled())
         mPrevObjectTool->makeCurrent();
@@ -185,7 +232,9 @@ void EditorWindowPerDocumentStuff::restoreTool()
 
 void EditorWindowPerDocumentStuff::viewAddedForDocument(BuildingIsoView *view)
 {
-    if (view->scene()->editingTiles())
+    if (view->scene()->editingAttributes())
+        mAttributeView = view;
+    else if (view->scene()->editingTiles())
         mTileView = view;
     else
         mIsoView = view;
@@ -203,6 +252,17 @@ void EditorWindowPerDocumentStuff::focusOn(int x, int y, int z, int objectIndex)
     if (objectIndex >= 0 && objectIndex < floor->objectCount()) {
         BuildingObject *bo = floor->object(objectIndex);
         document()->setSelectedObjects(QSet<BuildingObject*>() << bo);
+    }
+}
+
+void EditorWindowPerDocumentStuff::setInitialPosition()
+{
+    if (mInitialPositionSet) {
+        return;
+    }
+    mInitialPositionSet = true;
+    if (mIsoView != nullptr) {
+        mIsoView->centerOn(mIsoView->scene()->mapRenderer()->tileToPixelCoords(mDocument->building()->bounds().center()));
     }
 }
 
@@ -234,7 +294,7 @@ void EditorWindowPerDocumentStuff::autoSaveTimeout()
             do {
                 fileName = QString::fromLatin1("%1/untitled%2.tbx").arg(dir).arg(n);
                 ++n;
-            } while (QFileInfo(fileName + suffix).exists());
+            } while (QFileInfo::exists(fileName + suffix));
         }
         fileName += suffix;
         mAutoSaveFileName = fileName;
@@ -270,6 +330,7 @@ BuildingEditorWindow::BuildingEditorWindow(QWidget *parent) :
     mOrthoObjectEditMode(0),
     mIsoObjectEditMode(0),
     mTileEditMode(0),
+    mAttributeEditMode(nullptr),
     mDocumentChanging(false)
 {
     ui->setupUi(this);
@@ -285,7 +346,7 @@ BuildingEditorWindow::BuildingEditorWindow(QWidget *parent) :
     connect(docman(), &BuildingDocumentMgr::currentDocumentChanged,
             this, &BuildingEditorWindow::currentDocumentChanged);
 
-    PencilTool::instance()->setAction(ui->actionPecil);
+    PencilTool::instance()->setAction(ui->actionPencil);
     SelectMoveRoomsTool::instance()->setAction(ui->actionSelectRooms);
     DoorTool::instance()->setAction(ui->actionDoor);
     WallTool::instance()->setAction(ui->actionWall);
@@ -294,12 +355,16 @@ BuildingEditorWindow::BuildingEditorWindow(QWidget *parent) :
     FurnitureTool::instance()->setAction(ui->actionFurniture);
     RoofTool::instance()->setAction(ui->actionRoof);
     RoofShallowTool::instance()->setAction(ui->actionRoofShallow);
+    RoofSlope30Tool::instance()->setAction(ui->actionRoof30Degree);
     RoofCornerTool::instance()->setAction(ui->actionRoofCorner);
+    RoofCornerSlope30Tool::instance()->setAction(ui->actionRoofCorner30Degree);
     SelectMoveObjectTool::instance()->setAction(ui->actionSelectObject);
+    BasementAccessTool::instance()->setAction(ui->actionBasementAccessTool);
 
     DrawTileTool::instance()->setAction(ui->actionDrawTiles);
     SelectTileTool::instance()->setAction(ui->actionSelectTiles);
     PickTileTool::instance()->setAction(ui->actionPickTiles);
+    FloorGrimeTileTool::instance()->setAction(ui->actionFloorGrime);
 
     connect(PickTileTool::instance(), &PickTileTool::tilePicked,
             this, &BuildingEditorWindow::tilePicked);
@@ -312,20 +377,20 @@ BuildingEditorWindow::BuildingEditorWindow(QWidget *parent) :
     connect(ui->actionDownLevel, &QAction::triggered,
             this, &BuildingEditorWindow::downLevel);
 
-    QAction *undoAction = mUndoGroup->createUndoAction(this, tr("Undo"));
-    QAction *redoAction = mUndoGroup->createRedoAction(this, tr("Redo"));
-    undoAction->setShortcuts(QKeySequence::Undo);
-    redoAction->setShortcuts(QKeySequence::Redo);
+    mUndoAction = mUndoGroup->createUndoAction(this, tr("Undo"));
+    mRedoAction = mUndoGroup->createRedoAction(this, tr("Redo"));
+    mUndoAction->setShortcuts(QKeySequence::Undo);
+    mRedoAction->setShortcuts(QKeySequence::Redo);
     QIcon undoIcon(QLatin1String(":images/16x16/edit-undo.png"));
     undoIcon.addFile(QLatin1String(":images/24x24/edit-undo.png"));
     QIcon redoIcon(QLatin1String(":images/16x16/edit-redo.png"));
     redoIcon.addFile(QLatin1String(":images/24x24/edit-redo.png"));
-    undoAction->setIcon(undoIcon);
-    redoAction->setIcon(redoIcon);
-    Tiled::Utils::setThemeIcon(undoAction, "edit-undo");
-    Tiled::Utils::setThemeIcon(redoAction, "edit-redo");
-    ui->menuEdit->insertAction(ui->menuEdit->actions().at(0), undoAction);
-    ui->menuEdit->insertAction(ui->menuEdit->actions().at(1), redoAction);
+    mUndoAction->setIcon(undoIcon);
+    mRedoAction->setIcon(redoIcon);
+    Tiled::Utils::setThemeIcon(mUndoAction, "edit-undo");
+    Tiled::Utils::setThemeIcon(mRedoAction, "edit-redo");
+    ui->menuEdit->insertAction(ui->menuEdit->actions().at(0), mUndoAction);
+    ui->menuEdit->insertAction(ui->menuEdit->actions().at(1), mRedoAction);
     ui->menuEdit->insertSeparator(ui->menuEdit->actions().at(2));
 
     QIcon newIcon = ui->actionNewBuilding->icon();
@@ -338,24 +403,30 @@ BuildingEditorWindow::BuildingEditorWindow(QWidget *parent) :
     ui->actionOpen->setIcon(openIcon);
     ui->actionSave->setIcon(saveIcon);
 
-    ui->actionExportNewBinary->setVisible(false);
+    ui->actionExportNewBinary->setVisible(true);
 
     ui->actionCut->setShortcuts(QKeySequence::Cut);
     ui->actionCopy->setShortcuts(QKeySequence::Copy);
     ui->actionPaste->setShortcuts(QKeySequence::Paste);
     ui->actionDelete->setShortcuts(QKeySequence::Delete);
+    QList<QKeySequence> keys1;
+    keys1 += QKeySequence(Qt::CTRL | Qt::Key_Delete);
+    ui->actionDeleteInAllLayers->setShortcuts(keys1);
     ui->actionSelectAll->setShortcuts(QKeySequence::SelectAll);
+
     ui->actionSelectNone->setShortcut(tr("Ctrl+Shift+A"));
     connect(ui->actionCut, &QAction::triggered, this, &BuildingEditorWindow::editCut);
     connect(ui->actionCopy, &QAction::triggered, this, &BuildingEditorWindow::editCopy);
     connect(ui->actionPaste, &QAction::triggered, this, &BuildingEditorWindow::editPaste);
     connect(ui->actionDelete, &QAction::triggered, this, &BuildingEditorWindow::editDelete);
+    connect(ui->actionDeleteInAllLayers, &QAction::triggered, this, &BuildingEditorWindow::editDeleteInAllLayers);
     connect(ui->actionSelectAll, &QAction::triggered, this, &BuildingEditorWindow::selectAll);
     connect(ui->actionSelectNone, &QAction::triggered, this, &BuildingEditorWindow::selectNone);
 
     connect(mUndoGroup, &QUndoGroup::cleanChanged, this, &BuildingEditorWindow::updateWindowTitle);
 
     connect(ui->actionPreferences, &QAction::triggered, this, &BuildingEditorWindow::preferences);
+    connect(ui->actionKeyboardShortcuts, &QAction::triggered, this, &BuildingEditorWindow::keyboardShortcuts);
 
     connect(ui->actionNewBuilding, &QAction::triggered, this, &BuildingEditorWindow::newBuilding);
     connect(ui->actionOpen, &QAction::triggered, this, &BuildingEditorWindow::openBuilding);
@@ -372,7 +443,7 @@ BuildingEditorWindow::BuildingEditorWindow(QWidget *parent) :
     ui->actionSaveAs->setShortcuts(QKeySequence::SaveAs);
 
     connect(ui->actionClose, &QAction::triggered, this, &QWidget::close);
-    setWindowFlags(windowFlags() & ~Qt::WA_DeleteOnClose);
+    setAttribute(Qt::WA_DeleteOnClose, false);
 
     ui->actionShowGrid->setChecked(prefs->showGrid());
     connect(ui->actionShowGrid, &QAction::toggled,
@@ -398,11 +469,23 @@ BuildingEditorWindow::BuildingEditorWindow(QWidget *parent) :
     connect(prefs, &BuildingPreferences::showLowerFloorsChanged,
             ui->actionShowLowerFloors, &QAction::setChecked);
 
+    ui->actionShowOnlyFloors->setChecked(prefs->showOnlyFloors());
+    connect(ui->actionShowOnlyFloors, &QAction::toggled,
+            prefs, &BuildingPreferences::setShowOnlyFloors);
+    connect(prefs, &BuildingPreferences::showOnlyFloorsChanged,
+            ui->actionShowOnlyFloors, &QAction::setChecked);
+
     ui->actionShowObjects->setChecked(prefs->showObjects());
     connect(ui->actionShowObjects, &QAction::toggled,
             prefs, &BuildingPreferences::setShowObjects);
     connect(prefs, &BuildingPreferences::showObjectsChanged,
             this, &BuildingEditorWindow::showObjectsChanged);
+
+    ui->actionHighlightUnlitRooms->setChecked(prefs->highlightUnlitRooms());
+    connect(ui->actionHighlightUnlitRooms, &QAction::toggled,
+            prefs, &BuildingPreferences::setHighlightUnlitRooms);
+    connect(prefs, &BuildingPreferences::highlightUnlitRoomsChanged,
+            this, &BuildingEditorWindow::highlightUnlitRoomsChanged);
 
     QList<QKeySequence> keys = QKeySequence::keyBindings(QKeySequence::ZoomIn);
     keys += QKeySequence(tr("Ctrl+="));
@@ -442,6 +525,9 @@ BuildingEditorWindow::BuildingEditorWindow(QWidget *parent) :
     connect(ui->actionTiles, &QAction::triggered, this, &BuildingEditorWindow::tilesDialog);
     connect(ui->actionTemplateFromBuilding, &QAction::triggered,
             this, &BuildingEditorWindow::templateFromBuilding);
+    connect(ui->actionBasementAccessNone, &QAction::triggered, this, &BuildingEditorWindow::setBasementAccessNone);
+    connect(ui->actionBasementAccessNorth, &QAction::triggered, this, &BuildingEditorWindow::setBasementAccessNorth);
+    connect(ui->actionBasementAccessWest, &QAction::triggered, this, &BuildingEditorWindow::setBasementAccessWest);
 
     connect(ui->actionHelp, &QAction::triggered, this, &BuildingEditorWindow::help);
     connect(ui->actionAboutQt, &QAction::triggered, qApp, &QApplication::aboutQt);
@@ -451,10 +537,13 @@ BuildingEditorWindow::BuildingEditorWindow(QWidget *parent) :
     mOrthoObjectEditMode = new OrthoObjectEditMode(this);
     mIsoObjectEditMode = new IsoObjectEditMode(this);
     mTileEditMode = new TileEditMode(this);
+    mAttributeEditMode = new AttributeEditMode(this);
 
     connect(mIsoObjectEditMode, &IsoObjectEditMode::viewAddedForDocument,
             this, &BuildingEditorWindow::viewAddedForDocument);
     connect(mTileEditMode, &TileEditMode::viewAddedForDocument,
+            this, &BuildingEditorWindow::viewAddedForDocument);
+    connect(mAttributeEditMode, &AttributeEditMode::viewAddedForDocument,
             this, &BuildingEditorWindow::viewAddedForDocument);
 
     ::Utils::StyleHelper::setBaseColor(::Utils::StyleHelper::DEFAULT_BASE_COLOR);
@@ -466,6 +555,7 @@ BuildingEditorWindow::BuildingEditorWindow(QWidget *parent) :
     ModeManager::instance().addMode(mOrthoObjectEditMode);
     ModeManager::instance().addMode(mIsoObjectEditMode);
     ModeManager::instance().addMode(mTileEditMode);
+    ModeManager::instance().addMode(mAttributeEditMode);
     setCentralWidget(mTabWidget);
 
     mWelcomeMode->setEnabled(true);
@@ -479,6 +569,8 @@ BuildingEditorWindow::BuildingEditorWindow(QWidget *parent) :
     // Do this *after* all the different modes handle the document changing.
     connect(docman(), &BuildingDocumentMgr::currentDocumentChanged,
             this, &BuildingEditorWindow::reportMissingTilesets);
+
+    initActionManager();
 
 #ifndef BUILDINGED_SA
     readSettings();
@@ -509,6 +601,9 @@ void BuildingEditorWindow::closeEvent(QCloseEvent *event)
     if (confirmAllSave()) {
         writeSettings();
         docman()->closeAllDocuments();
+        if (mKeyboardShortcutWindow != nullptr) {
+            mKeyboardShortcutWindow->close();
+        }
         event->accept(); // doesn't destroy us
     } else
         event->ignore();
@@ -532,6 +627,9 @@ bool BuildingEditorWindow::openFile(const QString &fileName)
                 break;
             case EditorWindowPerDocumentStuff::TileMode:
                 mode = mTileEditMode;
+                break;
+            case EditorWindowPerDocumentStuff::AttributeMode:
+                mode = mAttributeEditMode;
                 break;
             }
             ModeManager::instance().setCurrentMode(mode);
@@ -684,6 +782,7 @@ void BuildingEditorWindow::readSettings()
     mOrthoObjectEditMode->readSettings(mSettings);
     mIsoObjectEditMode->readSettings(mSettings);
     mTileEditMode->readSettings(mSettings);
+    mAttributeEditMode->readSettings(mSettings);
 }
 
 void BuildingEditorWindow::writeSettings()
@@ -703,6 +802,7 @@ void BuildingEditorWindow::writeSettings()
     mOrthoObjectEditMode->writeSettings(mSettings);
     mIsoObjectEditMode->writeSettings(mSettings);
     mTileEditMode->writeSettings(mSettings);
+    mAttributeEditMode->writeSettings(mSettings);
 }
 
 void BuildingEditorWindow::saveSplitterSizes(QSplitter *splitter)
@@ -973,6 +1073,7 @@ void BuildingEditorWindow::documentAdded(BuildingDocument *doc)
     mOrthoObjectEditMode->setEnabled(true);
     mIsoObjectEditMode->setEnabled(true);
     mTileEditMode->setEnabled(true);
+    mAttributeEditMode->setEnabled(true);
 
 //    reportMissingTilesets();
 #if 1
@@ -1098,7 +1199,8 @@ void BuildingEditorWindow::documentAdded(BuildingDocument *doc)
 void BuildingEditorWindow::documentAboutToClose(int index, BuildingDocument *doc)
 {
     Q_UNUSED(index)
-    Q_UNUSED(doc)
+
+    mDocumentStuff.remove(doc);
 
     // At this point, the document is not in the DocumentManager's list of documents.
     // Removing the current tab will cause another tab to be selected and
@@ -1116,7 +1218,7 @@ void BuildingEditorWindow::currentDocumentChanged(BuildingDocument *doc)
     }
 
     mCurrentDocument = doc;
-    mCurrentDocumentStuff = doc ? mDocumentStuff[doc] : 0; // FIXME: unset when deleted
+    mCurrentDocumentStuff = doc ? mDocumentStuff[doc] : nullptr; // FIXME: unset when deleted
 
     if (mCurrentDocument) {
         IMode *mode = 0;
@@ -1129,6 +1231,9 @@ void BuildingEditorWindow::currentDocumentChanged(BuildingDocument *doc)
             break;
         case EditorWindowPerDocumentStuff::TileMode:
             mode = mTileEditMode;
+            break;
+        case EditorWindowPerDocumentStuff::AttributeMode:
+            mode = mAttributeEditMode;
             break;
         }
         ModeManager::instance().setCurrentMode(mode);
@@ -1159,6 +1264,9 @@ void BuildingEditorWindow::currentDocumentChanged(BuildingDocument *doc)
         connect(mCurrentDocument, &BuildingDocument::clipboardTilesChanged,
                 this, &BuildingEditorWindow::updateActions);
 
+        connect(mCurrentDocument, &BuildingDocument::basementAccessChanged,
+                this, &BuildingEditorWindow::updateActions);
+
         connect(mCurrentDocument, &BuildingDocument::cleanChanged, this, &BuildingEditorWindow::updateWindowTitle);
     } else {
         ToolManager::instance()->clearDocument();
@@ -1166,13 +1274,16 @@ void BuildingEditorWindow::currentDocumentChanged(BuildingDocument *doc)
         mOrthoObjectEditMode->setEnabled(false);
         mIsoObjectEditMode->setEnabled(false);
         mTileEditMode->setEnabled(false);
+        mAttributeEditMode->setEnabled(false);
     }
 
     updateActions();
     updateWindowTitle();
 
-    if (mCurrentDocumentStuff && !mWelcomeMode->isActive())
+    if (mCurrentDocumentStuff && !mWelcomeMode->isActive()) {
+        mCurrentDocumentStuff->setInitialPosition();
         mCurrentDocumentStuff->restoreTool();
+    }
 
     mDocumentChanging = false;
 }
@@ -1265,81 +1376,36 @@ void BuildingEditorWindow::exportTMX()
 }
 
 #include "buildingmap.h"
+#include "exportbasementsdialog.h"
 #include "mapcomposite.h"
 #include "mapmanager.h"
 #include "newmapbinaryfile.h"
 
 void BuildingEditorWindow::exportNewBinary()
 {
-    if (mCurrentDocument == nullptr)
+    ExportBasementsDialog dialog(this);
+    int result = dialog.exec();
+    if (result != QDialog::Accepted) {
         return;
-    QFileInfo fileInfo(mCurrentDocument->fileName());
-    QString dir = fileInfo.dir().path();
-    QString fileName = fileInfo.dir().filePath(fileInfo.baseName() + QLatin1String(".pzby"));
-    fileName = QFileDialog::getSaveFileName(this, tr("Export New Binary"), fileName, tr("Project Zomboid Map Binary (*.pzby)"));
-    if (fileName.isEmpty())
-        return;
-
-    Building* building = mCurrentDocument->building();
-    BuildingMap bmap(building);
-    Map *map = bmap.mergedMap();
-
-#if 0
-    if (map->orientation() == Map::LevelIsometric) {
-        if (!BuildingPreferences::instance()->levelIsometric()) {
-            Map *isoMap = MapManager::instance()->convertOrientation(map, Map::Isometric);
-            TilesetManager::instance()->removeReferences(map->tilesets());
-            delete map;
-            map = isoMap;
-        }
-    }
-#endif
-    for (BuildingFloor *floor : building->floors()) {
-#if 0
-        // The given map has layers required by the editor, i.e., Floors, Walls,
-        // Doors, etc.  The TMXConfig.txt file may specify extra layer names.
-        // So we need to insert any extra layers in the order specified in
-        // TMXConfig.txt.  If the layer name has a N_ prefix, it is only added
-        // to level N, otherwise it is added to every level.  Object layers are
-        // added above *all* the tile layers in the map.
-        int previousExistingLayer = -1;
-        foreach (LayerInfo layerInfo, mLayers) {
-            QString layerName = layerInfo.mName;
-            int level;
-            if (MapComposite::levelForLayer(layerName, &level)) {
-                if (level != floor->level())
-                    continue;
-            } else {
-                layerName = tr("%1_%2").arg(floor->level()).arg(layerName);
-            }
-            int n;
-            if ((n = map->indexOfLayer(layerName)) >= 0) {
-                previousExistingLayer = n;
-                continue;
-            }
-            if (layerInfo.mType == LayerInfo::Tile) {
-                TileLayer *tl = new TileLayer(layerName, 0, 0,
-                                              map->width(), map->height());
-                if (previousExistingLayer < 0)
-                    previousExistingLayer = 0;
-                map->insertLayer(previousExistingLayer + 1, tl);
-                previousExistingLayer++;
-            } else {
-                ObjectGroup *og = new ObjectGroup(layerName,
-                                                  0, 0, map->width(), map->height());
-                map->addLayer(og);
-            }
-        }
-#endif
-
-        bmap.addRoomDefObjects(map, floor);
     }
 
-    MapInfo* mapInfo = MapManager::instance()->newFromMap(map);
-    MapComposite mapComposite(mapInfo);
+    QStringList fileNames = dialog.fileNames();
+    if (fileNames.isEmpty()) {
+        QMessageBox::information(this, tr("Export Basements"), tr("No TBX files were selected for export."));
+        return;
+    }
 
-    NewMapBinaryFile file;
-    file.write(&mapComposite, fileName);
+    QSet<QString> northStairTiles;
+    QSet<QString> westStairTiles;
+    getTopStaircaseTiles(northStairTiles, westStairTiles);
+
+    QString luaCode;
+    for (const QString& fileName : qAsConst(fileNames)) {
+        exportNewBinaryFile(&dialog, fileName, northStairTiles, westStairTiles, luaCode);
+    }
+
+    QApplication::clipboard()->setText(luaCode);
+    QMessageBox::information(this, tr("Export Basements"), tr("basements.lua code was copied to the system clipboard."));
 }
 
 void BuildingEditorWindow::editCut()
@@ -1420,11 +1486,38 @@ void BuildingEditorWindow::editDelete()
     deleteObjects();
 }
 
+void BuildingEditorWindow::editDeleteInAllLayers()
+{
+    if (!mCurrentDocument)
+        return;
+    if (!mCurrentDocumentStuff->isTile())
+        return;
+    QUndoStack *undoStack = mCurrentDocument->undoStack();
+    undoStack->beginMacro(tr("Delete In All Layers"));
+    QRegion selection = mCurrentDocument->tileSelection();
+    QRect r = selection.boundingRect();
+    BuildingFloor *floor = currentFloor();
+    for (const QString &layerName : floor->grimeLayers()) {
+        FloorTileGrid *tiles = floor->grimeAt(layerName, r);
+        bool changed = tiles->replace(selection.translated(-r.topLeft()), QString());
+        if (changed) {
+            mCurrentDocument->undoStack()->push(
+                        new PaintFloorTiles(mCurrentDocument, floor,
+                                            layerName, selection,
+                                            r.topLeft(), tiles,
+                                            "Delete In All Layers"));
+        } else {
+            delete tiles;
+        }
+    }
+    undoStack->endMacro();
+}
+
 void BuildingEditorWindow::selectAll()
 {
     if (!mCurrentDocument)
         return;
-    if (mCurrentDocumentStuff->isTile()) {
+    if (mCurrentDocumentStuff->isTile() || mCurrentDocumentStuff->isAttribute()) {
         mCurrentDocument->undoStack()->push(
                     new ChangeTileSelection(mCurrentDocument, currentFloor()->bounds(1, 1)));
         return;
@@ -1442,7 +1535,7 @@ void BuildingEditorWindow::selectNone()
 {
     if (!mCurrentDocument)
         return;
-    if (mCurrentDocumentStuff->isTile()) {
+    if (mCurrentDocumentStuff->isTile() || mCurrentDocumentStuff->isAttribute()) {
         mCurrentDocument->undoStack()->push(
                     new ChangeTileSelection(mCurrentDocument, QRegion()));
         return;
@@ -1520,15 +1613,16 @@ void BuildingEditorWindow::buildingGrime()
 
 void BuildingEditorWindow::roomsDialog()
 {
-    if (!mCurrentDocument)
+    if (mCurrentDocument == nullptr) {
         return;
+    }
     QList<Room*> originalRoomList = mCurrentDocument->building()->rooms();
-    RoomsDialog dialog(originalRoomList, this);
+    RoomsDialog dialog(mCurrentDocument, mCurrentDocument->currentRoom(), this);
     dialog.setWindowTitle(tr("Rooms in building"));
 
     if (dialog.exec() != QDialog::Accepted)
         return;
-
+#if 0
     mCurrentDocument->undoStack()->beginMacro(tr("Edit Rooms"));
 
     QList<Room*> deletedRooms = originalRoomList;
@@ -1587,6 +1681,7 @@ void BuildingEditorWindow::roomsDialog()
     }
 
     mCurrentDocument->undoStack()->endMacro();
+#endif
 }
 
 void BuildingEditorWindow::roomAdded(Room *room)
@@ -1723,7 +1818,7 @@ void BuildingEditorWindow::cropBuilding(const QRect &bounds)
 
     // Resize
     undoStack->push(new EmitResizeBuilding(mCurrentDocument, true));
-    undoStack->push(new ResizeBuilding(mCurrentDocument, newSize));
+    undoStack->push(new ResizeBuilding(mCurrentDocument, offset, newSize));
     bool objectsDeleted = false;
     foreach (BuildingFloor *floor, mCurrentDocument->building()->floors()) {
         undoStack->push(new ResizeFloor(mCurrentDocument, floor, newSize));
@@ -1738,6 +1833,12 @@ void BuildingEditorWindow::cropBuilding(const QRect &bounds)
             }
         }
     }
+    if (mCurrentDocument->building()->hasBasementAccess()) {
+        BasementAccess ba = mCurrentDocument->building()->basementAccess();
+        ba.mX += offset.x();
+        ba.mY += offset.y();
+        undoStack->push(new SetBasementAccess(mCurrentDocument, ba));
+    }
     undoStack->push(new EmitResizeBuilding(mCurrentDocument, false));
 
     undoStack->push(new ChangeRoomSelection(mCurrentDocument,
@@ -1748,6 +1849,180 @@ void BuildingEditorWindow::cropBuilding(const QRect &bounds)
         QMessageBox::information(this, tr("Crop Building"),
                                  tr("Some objects were deleted during cropping."));
     }
+}
+
+void BuildingEditorWindow::exportNewBinaryFile(ExportBasementsDialog *dialog, const QString &tbxFilePath, QSet<QString> &northStairTiles, QSet<QString> &westStairTiles, QString& luaCode)
+{
+    BuildingReader reader;
+    Building *building = reader.read(tbxFilePath);
+    if (building == nullptr) {
+        return;
+    }
+    reader.fix(building);
+    BuildingMap bmap(building);
+    Map *map = bmap.mergedMap();
+
+#if 0
+    if (map->orientation() == Map::LevelIsometric) {
+        if (!BuildingPreferences::instance()->levelIsometric()) {
+            Map *isoMap = MapManager::instance()->convertOrientation(map, Map::Isometric);
+            TilesetManager::instance()->removeReferences(map->tilesets());
+            delete map;
+            map = isoMap;
+        }
+    }
+#endif
+
+    for (BuildingFloor *floor : building->floors()) {
+#if 0
+        // The given map has layers required by the editor, i.e., Floors, Walls,
+        // Doors, etc.  The TMXConfig.txt file may specify extra layer names.
+        // So we need to insert any extra layers in the order specified in
+        // TMXConfig.txt.  If the layer name has a N_ prefix, it is only added
+        // to level N, otherwise it is added to every level.  Object layers are
+        // added above *all* the tile layers in the map.
+        int previousExistingLayer = -1;
+        foreach (LayerInfo layerInfo, mLayers) {
+            QString layerName = layerInfo.mName;
+            int level;
+            if (MapComposite::levelForLayer(layerName, &level)) {
+                if (level != floor->level())
+                    continue;
+            } else {
+                layerName = tr("%1_%2").arg(floor->level()).arg(layerName);
+            }
+            int n;
+            if ((n = map->indexOfLayer(layerName)) >= 0) {
+                previousExistingLayer = n;
+                continue;
+            }
+            if (layerInfo.mType == LayerInfo::Tile) {
+                TileLayer *tl = new TileLayer(layerName, 0, 0,
+                                              map->width(), map->height());
+                if (previousExistingLayer < 0)
+                    previousExistingLayer = 0;
+                map->insertLayer(previousExistingLayer + 1, tl);
+                previousExistingLayer++;
+            } else {
+                ObjectGroup *og = new ObjectGroup(layerName,
+                                                  0, 0, map->width(), map->height());
+                map->addLayer(og);
+            }
+        }
+#endif
+
+        bmap.addRoomDefObjects(map, floor);
+    }
+
+    MapInfo* mapInfo = MapManager::instance()->newFromMap(map);
+    MapComposite mapComposite(mapInfo);
+
+    QPoint offset;
+    MapComposite* mapCompositeCropped = mapComposite.cropToMinimum(offset);
+    MapComposite* mapCompositeToWrite = mapCompositeCropped ? mapCompositeCropped : &mapComposite;
+
+    QVector<Tiled::PropertiesGrid*> attributesGrids;
+    for (BuildingFloor *floor : building->floors()) {
+        attributesGrids += floor->squarePropertiesGrid()->clone(QRect(offset, mapCompositeToWrite->map()->size()));
+    }
+
+    BasementAccess ba = building->basementAccess();
+
+    delete building;
+
+    int SquaresPerChunk = 8;
+    NewMapBinaryFile file(SquaresPerChunk);
+    QFileInfo fileInfo(tbxFilePath);
+    QString fileName = QDir(dialog->exportDirectory()).filePath(fileInfo.completeBaseName() + QStringLiteral(".pzby"));
+    bool isBasementAccess = fileInfo.fileName().startsWith(QStringLiteral("ba_"));
+    MapLevel *mapLevel = isBasementAccess ? map->minMapLevel() : map->maxMapLevel();
+    if (file.write(mapCompositeToWrite, attributesGrids, fileName) && (mapLevel != nullptr)) {
+        Map* mapToWrite = mapCompositeToWrite->map();
+        MapInfo *mapInfo1 = mapCompositeToWrite->mapInfo();
+        if (ba.isValid()) {
+            luaCode += QStringLiteral("%1 = { width=%2, height=%3, stairx=%4, stairy=%5, stairDir=\"%6\" },")
+                    .arg(fileInfo.completeBaseName())
+                    .arg(mapInfo1->width())
+                    .arg(mapInfo1->height())
+                    .arg(ba.mX - offset.x())
+                    .arg(ba.mY - offset.y())
+                    .arg(ba.dirString());
+            luaCode += QStringLiteral("\n");
+        } else {
+            int stairx = 0;
+            int stairy = 0;
+            QString stairDir = QStringLiteral("N");
+            if (getBasementStaircase(mapToWrite, northStairTiles, westStairTiles, stairx, stairy, stairDir, isBasementAccess)) {
+                luaCode += QStringLiteral("%1 = { width=%2, height=%3, stairx=%4, stairy=%5, stairDir=\"%6\" },")
+                        .arg(fileInfo.completeBaseName())
+                        .arg(mapInfo1->width())
+                        .arg(mapInfo1->height())
+                        .arg(stairx)
+                        .arg(stairy)
+                        .arg(stairDir);
+                luaCode += QStringLiteral("\n");
+            }
+        }
+    }
+
+    TilesetManager::instance()->removeReferences(map->tilesets());
+
+    if (mapCompositeCropped) {
+        delete mapCompositeCropped->mapInfo();
+        delete mapCompositeCropped->map();
+        delete mapCompositeCropped;
+    }
+
+    delete mapInfo;
+    delete map;
+    qDeleteAll(attributesGrids);
+}
+
+void BuildingEditorWindow::getTopStaircaseTiles(QSet<QString> &northStairTiles, QSet<QString> &westStairTiles)
+{
+    TileDefWatcher *tileDefWatcher = getTileDefWatcher();
+    tileDefWatcher->check();
+    for (TileDefWatcherFile *watcherFile : qAsConst(tileDefWatcher->mFiles)) {
+        for (TileDefTileset* tdts : watcherFile->mTileDefFile->tilesets()) {
+            for (TileDefTile* tdt : qAsConst(tdts->mTiles)) {
+                if (tdt->mProperties.contains(QStringLiteral("stairsTN"))) {
+                    northStairTiles += BuildingTilesMgr::nameForTile(tdt->tileset()->mName, tdt->id());
+                }
+                else if (tdt->mProperties.contains(QStringLiteral("stairsTW"))) {
+                    westStairTiles += BuildingTilesMgr::nameForTile(tdt->tileset()->mName, tdt->id());
+                }
+            }
+        }
+    }
+}
+
+bool BuildingEditorWindow::getBasementStaircase(Tiled::Map *map, QSet<QString> &northStairTiles, QSet<QString> &westStairTiles, int &stairx, int &stairy, QString &stairDir, bool isBasementAccess)
+{
+    MapLevel* mapLevel = isBasementAccess ? map->minMapLevel() : map->maxMapLevel();
+    for (TileLayer* tileLayer : mapLevel->tileLayers()) {
+        for (int y = 0; y < tileLayer->height(); y++) {
+            for (int x = 0; x < tileLayer->width(); x++) {
+                const Cell& cell = tileLayer->cellAt(x, y);
+                if (cell.isEmpty()) {
+                    continue;
+                }
+                QString tileName = BuildingEditor::BuildingTilesMgr::instance()->nameForTile(cell.tile);
+                if (northStairTiles.contains(tileName)) {
+                    stairx = x;
+                    stairy = y;
+                    stairDir = QStringLiteral("N");
+                    return true;
+                }
+                if (westStairTiles.contains(tileName)) {
+                    stairx = x;
+                    stairy = y;
+                    stairDir = QStringLiteral("W");
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
 }
 
 void BuildingEditorWindow::resizeBuilding()
@@ -1805,7 +2080,7 @@ void BuildingEditorWindow::resizeBuilding()
 
     // Resize
     undoStack->push(new EmitResizeBuilding(mCurrentDocument, true));
-    undoStack->push(new ResizeBuilding(mCurrentDocument, newSize));
+    undoStack->push(new ResizeBuilding(mCurrentDocument, offset, newSize));
     foreach (BuildingFloor *floor, mCurrentDocument->building()->floors()) {
         undoStack->push(new ResizeFloor(mCurrentDocument, floor, newSize));
         undoStack->push(new SwapFloorGrid(mCurrentDocument, floor, grids[floor],
@@ -1821,6 +2096,12 @@ void BuildingEditorWindow::resizeBuilding()
                 undoStack->push(new RemoveObject(mCurrentDocument, floor, i));
             }
         }
+    }
+    if (mCurrentDocument->building()->hasBasementAccess()) {
+        BasementAccess ba = mCurrentDocument->building()->basementAccess();
+        ba.mX += offset.x();
+        ba.mY += offset.y();
+        undoStack->push(new SetBasementAccess(mCurrentDocument, ba));
     }
     undoStack->push(new EmitResizeBuilding(mCurrentDocument, false));
     undoStack->endMacro();
@@ -1950,6 +2231,32 @@ void BuildingEditorWindow::rotateLeft()
                                  tr("User-drawn tiles were removed during rotating."));
 }
 
+void BuildingEditorWindow::setBasementAccessNone()
+{
+    if (mCurrentDocument == nullptr)
+        return;
+    QUndoStack *undoStack = mCurrentDocument->undoStack();
+    undoStack->push(new SetBasementAccess(mCurrentDocument, BasementAccess()));
+}
+
+void BuildingEditorWindow::setBasementAccessNorth()
+{
+    if (mCurrentDocument == nullptr)
+        return;
+    BasementAccess ba{ 0, 0, BuildingObject::Direction::N };
+    QUndoStack *undoStack = mCurrentDocument->undoStack();
+    undoStack->push(new SetBasementAccess(mCurrentDocument, ba));
+}
+
+void BuildingEditorWindow::setBasementAccessWest()
+{
+    if (mCurrentDocument == nullptr)
+        return;
+    BasementAccess ba{ 0, 0, BuildingObject::Direction::W };
+    QUndoStack *undoStack = mCurrentDocument->undoStack();
+    undoStack->push(new SetBasementAccess(mCurrentDocument, ba));
+}
+
 void BuildingEditorWindow::templatesDialog()
 {
     BuildingTemplatesDialog dialog(this);
@@ -1958,6 +2265,115 @@ void BuildingEditorWindow::templatesDialog()
 
     BuildingTemplates::instance()->replaceTemplates(dialog.templates());
     BuildingTemplates::instance()->writeTxt(this);
+}
+
+void BuildingEditorWindow::initActionManager()
+{
+    const QString fileName = Preferences::instance()->userPath(QStringLiteral("shortcuts/BuildingEd.txt"));
+    mActionManager = new ActionManager(fileName, this);
+
+    const QString CONTEXT_MENU = QStringLiteral("Menu");
+    const QString CATEGORY_MENU_FILE = QStringLiteral("File");
+    const QString CATEGORY_MENU_EDIT = QStringLiteral("Edit");
+    const QString CATEGORY_MENU_VIEW = QStringLiteral("View");
+    const QString CATEGORY_MENU_BUILDING = QStringLiteral("Building");
+    const QString CATEGORY_MENU_FLOOR = QStringLiteral("Floor");
+
+    ActionManager *actionManager = mActionManager;
+    actionManager->registerAction(ui->actionNewBuilding, CONTEXT_MENU, CATEGORY_MENU_FILE, QStringLiteral("Menu.File.New"));
+    actionManager->registerAction(ui->actionOpen, CONTEXT_MENU, CATEGORY_MENU_FILE, QStringLiteral("Menu.File.Open"));
+    actionManager->registerAction(ui->actionSave, CONTEXT_MENU, CATEGORY_MENU_FILE, QStringLiteral("Menu.File.Save"));
+    actionManager->registerAction(ui->actionSaveAs, CONTEXT_MENU, CATEGORY_MENU_FILE, QStringLiteral("Menu.File.SaveAs"));
+    actionManager->registerAction(ui->actionClose, CONTEXT_MENU, CATEGORY_MENU_FILE, QStringLiteral("Menu.File.Close"));
+
+    actionManager->registerAction(mUndoAction, CONTEXT_MENU, CATEGORY_MENU_EDIT, QStringLiteral("Menu.Edit.Undo"));
+    actionManager->registerAction(mRedoAction, CONTEXT_MENU, CATEGORY_MENU_EDIT, QStringLiteral("Menu.Edit.Redo"));
+    actionManager->registerAction(ui->actionCut, CONTEXT_MENU, CATEGORY_MENU_EDIT, QStringLiteral("Menu.Edit.Cut"));
+    actionManager->registerAction(ui->actionCopy, CONTEXT_MENU, CATEGORY_MENU_EDIT, QStringLiteral("Menu.Edit.Copy"));
+    actionManager->registerAction(ui->actionPaste, CONTEXT_MENU, CATEGORY_MENU_EDIT, QStringLiteral("Menu.Edit.Paste"));
+    actionManager->registerAction(ui->actionDelete, CONTEXT_MENU, CATEGORY_MENU_EDIT, QStringLiteral("Menu.Edit.Delete"));
+    actionManager->registerAction(ui->actionDeleteInAllLayers, CONTEXT_MENU, CATEGORY_MENU_EDIT, QStringLiteral("Menu.Edit.DeleteInAllLayers"));
+    actionManager->registerAction(ui->actionSelectAll, CONTEXT_MENU, CATEGORY_MENU_EDIT, QStringLiteral("Menu.Edit.SelectAll"));
+    actionManager->registerAction(ui->actionSelectNone, CONTEXT_MENU, CATEGORY_MENU_EDIT, QStringLiteral("Menu.Edit.SelectNone"));
+    actionManager->registerAction(ui->actionPreferences, CONTEXT_MENU, CATEGORY_MENU_EDIT, QStringLiteral("Menu.Edit.KeyboardShortcuts"));
+    actionManager->registerAction(ui->actionKeyboardShortcuts, CONTEXT_MENU, CATEGORY_MENU_EDIT, QStringLiteral("Menu.Edit.KeyboardShortcuts"));
+
+    actionManager->registerAction(ui->actionShowGrid, CONTEXT_MENU, CATEGORY_MENU_VIEW, QStringLiteral("Menu.View.ShowGrid"));
+    actionManager->registerAction(ui->actionHighlightFloor, CONTEXT_MENU, CATEGORY_MENU_VIEW, QStringLiteral("Menu.View.HighlightCurrentFloor"));
+    actionManager->registerAction(ui->actionHighlightRoom, CONTEXT_MENU, CATEGORY_MENU_VIEW, QStringLiteral("Menu.View.HighlightRoom"));
+    actionManager->registerAction(ui->actionShowLowerFloors, CONTEXT_MENU, CATEGORY_MENU_VIEW, QStringLiteral("Menu.View.ShowLowerFloors"));
+    actionManager->registerAction(ui->actionShowOnlyFloors, CONTEXT_MENU, CATEGORY_MENU_VIEW, QStringLiteral("Menu.View.ShowOnlyFloors"));
+    actionManager->registerAction(ui->actionShowObjects, CONTEXT_MENU, CATEGORY_MENU_VIEW, QStringLiteral("Menu.View.ShowObjectShapes"));
+    actionManager->registerAction(ui->actionHighlightUnlitRooms, CONTEXT_MENU, CATEGORY_MENU_VIEW, QStringLiteral("Menu.View.HighlightUnlitRooms"));
+    actionManager->registerAction(ui->actionZoomIn, CONTEXT_MENU, CATEGORY_MENU_VIEW, QStringLiteral("Menu.View.ZoomIn"));
+    actionManager->registerAction(ui->actionZoomOut, CONTEXT_MENU, CATEGORY_MENU_VIEW, QStringLiteral("Menu.View.ZoomOut"));
+    actionManager->registerAction(ui->actionNormalSize, CONTEXT_MENU, CATEGORY_MENU_VIEW, QStringLiteral("Menu.View.ZoomNormal"));
+
+    actionManager->registerAction(ui->actionCropToMinimum, CONTEXT_MENU, CATEGORY_MENU_BUILDING, QStringLiteral("Menu.Building.CropToMinimum"));
+    actionManager->registerAction(ui->actionCropToSelection, CONTEXT_MENU, CATEGORY_MENU_BUILDING, QStringLiteral("Menu.Building.CropToSelection"));
+    actionManager->registerAction(ui->actionResize, CONTEXT_MENU, CATEGORY_MENU_BUILDING, QStringLiteral("Menu.Building.Resize"));
+    actionManager->registerAction(ui->actionFlipHorizontal, CONTEXT_MENU, CATEGORY_MENU_BUILDING, QStringLiteral("Menu.Building.FlipHorizontal"));
+    actionManager->registerAction(ui->actionFlipVertical, CONTEXT_MENU, CATEGORY_MENU_BUILDING, QStringLiteral("Menu.Building.FlipVertical"));
+    actionManager->registerAction(ui->actionRotateLeft, CONTEXT_MENU, CATEGORY_MENU_BUILDING, QStringLiteral("Menu.Building.RotateLeft"));
+    actionManager->registerAction(ui->actionRotateRight, CONTEXT_MENU, CATEGORY_MENU_BUILDING, QStringLiteral("Menu.Building.RotateRight"));
+    actionManager->registerAction(ui->actionBuildingProperties, CONTEXT_MENU, CATEGORY_MENU_BUILDING, QStringLiteral("Menu.Building.Properties"));
+    actionManager->registerAction(ui->actionKeyValues, CONTEXT_MENU, CATEGORY_MENU_BUILDING, QStringLiteral("Menu.Building.KeyValues"));
+    actionManager->registerAction(ui->actionGrime, CONTEXT_MENU, CATEGORY_MENU_BUILDING, QStringLiteral("Menu.Building.Grime"));
+    actionManager->registerAction(ui->actionRooms, CONTEXT_MENU, CATEGORY_MENU_BUILDING, QStringLiteral("Menu.Building.Rooms"));
+    actionManager->registerAction(ui->actionTemplates, CONTEXT_MENU, CATEGORY_MENU_BUILDING, QStringLiteral("Menu.Building.Templates"));
+    actionManager->registerAction(ui->actionTiles, CONTEXT_MENU, CATEGORY_MENU_BUILDING, QStringLiteral("Menu.Building.Tiles"));
+    actionManager->registerAction(ui->actionTemplateFromBuilding, CONTEXT_MENU, CATEGORY_MENU_BUILDING, QStringLiteral("Menu.Building.TemplateFrom"));
+
+    actionManager->registerAction(ui->actionInsertFloorAbove, CONTEXT_MENU, CATEGORY_MENU_FLOOR, QStringLiteral("Menu.Floor.AddFloorAbove"));
+    actionManager->registerAction(ui->actionInsertFloorBelow, CONTEXT_MENU, CATEGORY_MENU_FLOOR, QStringLiteral("Menu.Floor.AddFloorBelow"));
+    actionManager->registerAction(ui->actionRemoveFloor, CONTEXT_MENU, CATEGORY_MENU_FLOOR, QStringLiteral("Menu.Floor.RemoveFloor"));
+    actionManager->registerAction(ui->actionFloors, CONTEXT_MENU, CATEGORY_MENU_FLOOR, QStringLiteral("Menu.Floor.Floors"));
+    actionManager->registerAction(ui->actionUpLevel, CONTEXT_MENU, CATEGORY_MENU_FLOOR, QStringLiteral("Menu.Floor.UpLevel"));
+    actionManager->registerAction(ui->actionDownLevel, CONTEXT_MENU, CATEGORY_MENU_FLOOR, QStringLiteral("Menu.Floor.DownLevel"));
+
+    const QString CONTEXT_TOOLS = QStringLiteral("Tools");
+    const QString CATEGORY_TOOL_OBJECT = QStringLiteral("Object");
+    const QString CATEGORY_TOOL_TILE = QStringLiteral("Tile");
+
+    actionManager->registerAction(ui->actionPencil, CONTEXT_TOOLS, CATEGORY_TOOL_OBJECT, QStringLiteral("Tools.Object.Pencil"));
+    actionManager->registerAction(ui->actionWall, CONTEXT_TOOLS, CATEGORY_TOOL_OBJECT, QStringLiteral("Tools.Object."));
+    actionManager->registerAction(ui->actionSelectRooms, CONTEXT_TOOLS, CATEGORY_TOOL_OBJECT, QStringLiteral("Tools.Object.SelectRoom"));
+    actionManager->registerAction(ui->actionDoor, CONTEXT_TOOLS, CATEGORY_TOOL_OBJECT, QStringLiteral("Tools.Object."));
+    actionManager->registerAction(ui->actionWindow, CONTEXT_TOOLS, CATEGORY_TOOL_OBJECT, QStringLiteral("Tools.Object."));
+    actionManager->registerAction(ui->actionStairs, CONTEXT_TOOLS, CATEGORY_TOOL_OBJECT, QStringLiteral("Tools.Object."));
+    actionManager->registerAction(ui->actionRoof, CONTEXT_TOOLS, CATEGORY_TOOL_OBJECT, QStringLiteral("Tools.Object."));
+    actionManager->registerAction(ui->actionRoofShallow, CONTEXT_TOOLS, CATEGORY_TOOL_OBJECT, QStringLiteral("Tools.Object."));
+    actionManager->registerAction(ui->actionRoof30Degree, CONTEXT_TOOLS, CATEGORY_TOOL_OBJECT, QStringLiteral("Tools.Object."));
+    actionManager->registerAction(ui->actionRoofCorner, CONTEXT_TOOLS, CATEGORY_TOOL_OBJECT, QStringLiteral("Tools.Object."));
+    actionManager->registerAction(ui->actionRoofCorner30Degree, CONTEXT_TOOLS, CATEGORY_TOOL_OBJECT, QStringLiteral("Tools.Object."));
+    actionManager->registerAction(ui->actionFurniture, CONTEXT_TOOLS, CATEGORY_TOOL_OBJECT, QStringLiteral("Tools.Object."));
+    actionManager->registerAction(ui->actionSelectObject, CONTEXT_TOOLS, CATEGORY_TOOL_OBJECT, QStringLiteral("Tools.Object."));
+    actionManager->registerAction(ui->actionBasementAccessTool, CONTEXT_TOOLS, CATEGORY_TOOL_OBJECT, QStringLiteral("Tools.Object.BasementAccess"));
+
+    actionManager->registerAction(ui->actionDrawTiles, CONTEXT_TOOLS, CATEGORY_TOOL_TILE, QStringLiteral("Tools.Tile.Draw"));
+    actionManager->registerAction(ui->actionSelectTiles, CONTEXT_TOOLS, CATEGORY_TOOL_TILE, QStringLiteral("Tools.Tile.Select"));
+    actionManager->registerAction(ui->actionPickTiles, CONTEXT_TOOLS, CATEGORY_TOOL_TILE, QStringLiteral("Tools.Tile.Pick"));
+    actionManager->registerAction(ui->actionFloorGrime, CONTEXT_TOOLS, CATEGORY_TOOL_TILE, QStringLiteral("Tools.Tile.FloorGrime"));
+
+    connect(actionManager, &ActionManager::shortcutEdited, ToolManager::instance(), &ToolManager::shortcutEdited);
+
+    // Do this after all ToolManager::register() calls.
+    QString error;
+    mActionManager->load(error);
+    mActionManager->emitShortcutEditedForAllActions();
+}
+
+void BuildingEditorWindow::keyboardShortcuts()
+{
+    QString error;
+    mActionManager->load(error);
+    mActionManager->emitShortcutEditedForAllActions();
+    if (mKeyboardShortcutWindow == nullptr) {
+        mKeyboardShortcutWindow = new KeyboardShortcutWindow(mActionManager, &mSettings, QStringLiteral("KeyboardShortcutsWindow"), this);
+        mKeyboardShortcutWindow->setAttribute(Qt::WA_DeleteOnClose, false);
+    }
+    mKeyboardShortcutWindow->show();
+    mKeyboardShortcutWindow->raise();
 }
 
 void BuildingEditorWindow::tilesDialog()
@@ -1998,6 +2414,23 @@ void BuildingEditorWindow::showObjectsChanged(bool show)
 {
     Q_UNUSED(show)
     updateActions();
+}
+
+void BuildingEditorWindow::highlightUnlitRoomsChanged(bool show)
+{
+    Q_UNUSED(show)
+    updateActions();
+
+    bool hasDoc = (ModeManager::instance().currentMode() != mWelcomeMode) && (mCurrentDocumentStuff != nullptr);
+    if (hasDoc == false) {
+        return;
+    }
+    if (mCurrentDocumentStuff->isoView() != nullptr) {
+        mCurrentDocumentStuff->isoView()->scene()->calculateUnlitRoomMask();
+    }
+    if (mCurrentDocumentStuff->tileView() != nullptr) {
+        mCurrentDocumentStuff->tileView()->scene()->calculateUnlitRoomMask();
+    }
 }
 
 
@@ -2098,6 +2531,7 @@ void BuildingEditorWindow::updateActions()
             mCurrentDocument != 0;
     bool showObjects = BuildingPreferences::instance()->showObjects();
     bool objectMode = hasDoc && mCurrentDocumentStuff->isObject();
+    bool attributeMode = hasDoc && mCurrentDocumentStuff->isAttribute();
 
     bool hasEditor = ToolManager::instance()->currentEditor() != 0;
     PencilTool::instance()->setEnabled(hasEditor && objectMode && currentRoom() != 0);
@@ -2107,18 +2541,22 @@ void BuildingEditorWindow::updateActions()
     WindowTool::instance()->setEnabled(hasEditor && objectMode && showObjects);
     StairsTool::instance()->setEnabled(hasEditor && objectMode && showObjects);
     FurnitureTool::instance()->setEnabled(hasEditor && objectMode && showObjects &&
-            FurnitureTool::instance()->currentTile() != 0);
+            FurnitureTool::instance()->currentTile() != nullptr);
     bool roofTilesOK = hasDoc && currentBuilding()->roofCapTile()->asRoofCap() &&
             currentBuilding()->roofSlopeTile()->asRoofSlope() /*&&
             currentBuilding()->roofTopTile()->asRoofTop()*/;
     RoofTool::instance()->setEnabled(hasEditor && objectMode && showObjects && roofTilesOK);
     RoofShallowTool::instance()->setEnabled(hasEditor && objectMode && showObjects && roofTilesOK);
+    RoofSlope30Tool::instance()->setEnabled(hasEditor && objectMode && showObjects && roofTilesOK);
     RoofCornerTool::instance()->setEnabled(hasEditor && objectMode && showObjects && roofTilesOK);
+    RoofCornerSlope30Tool::instance()->setEnabled(hasEditor && objectMode && showObjects && roofTilesOK);
     SelectMoveObjectTool::instance()->setEnabled(hasEditor && objectMode && showObjects);
+    BasementAccessTool::instance()->setEnabled(hasEditor && objectMode && mCurrentDocument->building()->hasBasementAccess());
 
     DrawTileTool::instance()->setEnabled(hasEditor && !objectMode && !currentLayer().isEmpty());
     SelectTileTool::instance()->setEnabled(hasEditor && !objectMode && !currentLayer().isEmpty());
     PickTileTool::instance()->setEnabled(hasEditor && !objectMode);
+    FloorGrimeTileTool::instance()->setEnabled(hasEditor && !objectMode && !currentLayer().isEmpty());
 
     ui->actionUpLevel->setEnabled(hasDoc &&
                                   !mCurrentDocument->currentFloorIsTop());
@@ -2132,6 +2570,7 @@ void BuildingEditorWindow::updateActions()
     ui->actionExportNewBinary->setEnabled(hasDoc);
 
     ui->actionShowObjects->setEnabled(hasDoc);
+    ui->actionHighlightUnlitRooms->setEnabled(hasDoc);
 
     ui->actionBuildingProperties->setEnabled(hasDoc);
     ui->actionKeyValues->setEnabled(hasDoc);
@@ -2154,13 +2593,14 @@ void BuildingEditorWindow::updateActions()
     ui->actionFloors->setEnabled(hasDoc);
 
     bool hasTileSel = hasDoc && !objectMode && !mCurrentDocument->tileSelection().isEmpty();
-    ui->actionCut->setEnabled(hasTileSel);
-    ui->actionCopy->setEnabled(hasTileSel);
-    ui->actionPaste->setEnabled(hasDoc && !objectMode && mCurrentDocument->clipboardTiles());
+    ui->actionCut->setEnabled(hasTileSel && !attributeMode);
+    ui->actionCopy->setEnabled(hasTileSel && !attributeMode);
+    ui->actionPaste->setEnabled(hasDoc && !objectMode && !attributeMode && mCurrentDocument->clipboardTiles());
     if (!objectMode) {
         ui->actionSelectAll->setEnabled(!currentLayer().isEmpty());
         ui->actionSelectNone->setEnabled(hasTileSel);
-        ui->actionDelete->setEnabled(hasTileSel);
+        ui->actionDelete->setEnabled(hasTileSel && !attributeMode);
+        ui->actionDeleteInAllLayers->setEnabled(hasTileSel && !attributeMode);
     } else {
         ui->actionSelectAll->setEnabled(hasDoc);
         bool selectNone = false;
@@ -2211,6 +2651,8 @@ void BuildingEditorWindow::currentModeChanged()
         mCurrentDocumentStuff->toIsoObject();
     else if (mode == mTileEditMode)
         mCurrentDocumentStuff->toTile();
+    else if (mode == mAttributeEditMode)
+        mCurrentDocumentStuff->toAttribute();
 
     updateActions();
     updateWindowTitle();

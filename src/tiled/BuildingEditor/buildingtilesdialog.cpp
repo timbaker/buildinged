@@ -18,8 +18,11 @@
 #include "buildingtilesdialog.h"
 #include "ui_buildingtilesdialog.h"
 
+#include "buildingdocumentmgr.h"
+#include "buildingfurniturefile.h"
 #include "buildingpreferences.h"
 #include "buildingtiles.h"
+#include "buildingtilesfile.h"
 #include "buildingtmx.h"
 #include "furnituregroups.h"
 #include "furnitureview.h"
@@ -140,6 +143,34 @@ public:
     BuildingTilesDialog *mDialog;
     BuildingTileCategory *mCategory;
     QString mName;
+};
+
+class SetBuildingTilesRevision : public QUndoCommand
+{
+public:
+    SetBuildingTilesRevision(BuildingTilesDialog *d, int revision, int sourceRevision) :
+        QUndoCommand(QCoreApplication::translate("UndoCommands", "Set BuildingTiles Revision")),
+        mDialog(d),
+        mRevision(revision),
+        mSourceRevision(sourceRevision)
+    {
+    }
+
+    void undo()
+    {
+        mRevision = BuildingTilesMgr::instance()->setRevision(mRevision);
+        mSourceRevision = BuildingTilesMgr::instance()->setSourceRevision(mSourceRevision);
+    }
+
+    void redo()
+    {
+        mRevision = BuildingTilesMgr::instance()->setRevision(mRevision);
+        mSourceRevision = BuildingTilesMgr::instance()->setSourceRevision(mSourceRevision);
+    }
+
+    BuildingTilesDialog *mDialog;
+    int mRevision;
+    int mSourceRevision;
 };
 
 class AddCategory : public QUndoCommand
@@ -531,6 +562,34 @@ public:
     QString mName;
 };
 
+class SetFurnitureGroupsRevision : public QUndoCommand
+{
+public:
+    SetFurnitureGroupsRevision(BuildingTilesDialog *d, int revision, int sourceRevision) :
+        QUndoCommand(QCoreApplication::translate("UndoCommands", "Set FurnitureGroups Revision")),
+        mDialog(d),
+        mRevision(revision),
+        mSourceRevision(sourceRevision)
+    {
+    }
+
+    void undo()
+    {
+        mRevision = FurnitureGroups::instance()->setRevision(mRevision);
+        mSourceRevision = FurnitureGroups::instance()->setSourceRevision(mSourceRevision);
+    }
+
+    void redo()
+    {
+        mRevision = FurnitureGroups::instance()->setRevision(mRevision);
+        mSourceRevision = FurnitureGroups::instance()->setSourceRevision(mSourceRevision);
+    }
+
+    BuildingTilesDialog *mDialog;
+    int mRevision;
+    int mSourceRevision;
+};
+
 } // namespace BuildingEditor
 
 /////
@@ -591,6 +650,8 @@ BuildingTilesDialog::BuildingTilesDialog(QWidget *parent) :
     ui->categoryView->setSelectionMode(QAbstractItemView::ExtendedSelection);
     connect(ui->categoryView->model(), &TileCategoryModel::tileDropped,
             this, &BuildingTilesDialog::entryTileDropped);
+    connect(ui->categoryView->model(), &TileCategoryModel::tilesDropped,
+            this, &BuildingTilesDialog::entryTilesDropped);
     connect(ui->categoryView->selectionModel(),
             &QItemSelectionModel::currentChanged,
             this, &BuildingTilesDialog::entrySelectionChanged);
@@ -656,11 +717,13 @@ BuildingTilesDialog::BuildingTilesDialog(QWidget *parent) :
     ui->categoryListToolbarLayout->addWidget(toolBar);
     /////
 
+    int insertWidgetAt = 1;
+
     // Create UI for adjusting BuildingTileEntry offset
     QHBoxLayout *hbox = new QHBoxLayout;
     hbox->setContentsMargins(0, 0, 0, 0);
 
-    QLabel *label = new QLabel(tr("Tile Offset"));
+    QLabel *label = new QLabel(tr("Tile Offset:"));
     hbox->addWidget(label);
 
     label = new QLabel(tr("x:"));
@@ -679,7 +742,7 @@ BuildingTilesDialog::BuildingTilesDialog(QWidget *parent) :
 
     QWidget *layoutWidget = new QWidget();
     layoutWidget->setLayout(hbox);
-    ui->categoryLayout->insertWidget(1, layoutWidget);
+    ui->categoryLayout->insertWidget(insertWidgetAt++, layoutWidget);
     mEntryOffsetUI = layoutWidget;
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     connect(mEntryOffsetSpinX, qOverload<int>(&QSpinBox::valueChanged),
@@ -713,7 +776,7 @@ BuildingTilesDialog::BuildingTilesDialog(QWidget *parent) :
 
     QWidget *layoutWidget = new QWidget();
     layoutWidget->setLayout(hbox);
-    ui->categoryLayout->insertWidget(2, layoutWidget);
+    ui->categoryLayout->insertWidget(insertWidgetAt++, layoutWidget);
     mFurnitureLayerUI = layoutWidget;
     mFurnitureLayerComboBox = cb;
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
@@ -737,6 +800,7 @@ BuildingTilesDialog::BuildingTilesDialog(QWidget *parent) :
     toolBar->addSeparator();
     toolBar->addAction(ui->actionAddTiles);
     toolBar->addAction(ui->actionRemoveTiles);
+    toolBar->addAction(ui->actionRemoveDuplicates);
     toolBar->addAction(ui->actionExpertMode);
     connect(ui->actionToggleCorners, &QAction::triggered, this, qOverload<>(&BuildingTilesDialog::toggleCorners));
     connect(ui->actionClearTiles, &QAction::triggered, this, &BuildingTilesDialog::clearTiles);
@@ -744,6 +808,7 @@ BuildingTilesDialog::BuildingTilesDialog(QWidget *parent) :
     connect(ui->actionMoveTileDown, &QAction::triggered, this, &BuildingTilesDialog::moveTileDown);
     connect(ui->actionAddTiles, &QAction::triggered, this, &BuildingTilesDialog::addTiles);
     connect(ui->actionRemoveTiles, &QAction::triggered, this, &BuildingTilesDialog::removeTiles);
+    connect(ui->actionRemoveDuplicates, &QAction::triggered, this, &BuildingTilesDialog::removeDuplicates);
     connect(ui->actionExpertMode, &QAction::toggled, this, &BuildingTilesDialog::setExpertMode);
     ui->categoryToolbarLayout->addWidget(toolBar, 1);
 
@@ -785,6 +850,28 @@ BuildingTilesDialog::BuildingTilesDialog(QWidget *parent) :
     ui->buttonsLayout->insertWidget(1, button);
     connect(mUndoGroup, &QUndoGroup::canRedoChanged, button, &QWidget::setEnabled);
     connect(button, &QAbstractButton::clicked, redoAction, &QAction::triggered);
+
+    ui->buttonsLayout->insertStretch(2, 0);
+
+    button = new QToolButton(this);
+    button->setText(tr("Import..."));
+    button->setToolTip(tr("Read BuildingTiles.txt and BuildingFurniture.txt.\nThis will replace your current tile and furniture assignments."));
+    ui->buttonsLayout->insertWidget(3, button);
+    connect(button, &QAbstractButton::clicked, this, &BuildingTilesDialog::importFile);
+
+    button = new QToolButton(this);
+    button->setText(tr("Export..."));
+    button->setToolTip(tr("Write a copy of BuildingTiles.txt and BuildingFurniture.txt.\nCan be used to share these files with others."));
+    ui->buttonsLayout->insertWidget(4, button);
+    connect(button, &QAbstractButton::clicked, this, &BuildingTilesDialog::exportFile);
+
+    button = new QToolButton(this);
+    button->setText(tr("Reload"));
+    button->setToolTip(tr("Read BuildingTiles.txt and BuildingFurniture.txt.\nThis will replace your current tile and furniture assignments."));
+    ui->buttonsLayout->insertWidget(5, button);
+    connect(button, &QAbstractButton::clicked, this, &BuildingTilesDialog::reloadFile);
+
+    ui->buttonsLayout->insertStretch(6, 0);
 
     connect(ui->tilesetMgr, &QAbstractButton::clicked, this, &BuildingTilesDialog::manageTilesets);
 
@@ -837,6 +924,7 @@ BuildingTilesDialog::BuildingTilesDialog(QWidget *parent) :
 BuildingTilesDialog::~BuildingTilesDialog()
 {
     delete ui;
+    mInstance = nullptr;
 }
 
 bool BuildingTilesDialog::changes()
@@ -906,7 +994,9 @@ void BuildingTilesDialog::reparent(QWidget *parent)
 {
     if (parent == parentWidget()) return;
     QPoint savePosition = pos();
+    Qt::WindowModality modality = windowModality();
     setParent(parent, windowFlags());
+    setWindowModality(modality);
     move(savePosition);
 }
 
@@ -1292,7 +1382,7 @@ void BuildingTilesDialog::synchUI()
             remove = mCurrentEntry != 0;
             clear = mCurrentEntry != 0;
         } else {
-            add = ui->tilesetTilesView->selectionModel()->selectedIndexes().count();;
+            add = !ui->tilesetTilesView->selectionModel()->selectedIndexes().isEmpty();
             remove = mCurrentEntry != 0;
         }
     }
@@ -1307,6 +1397,7 @@ void BuildingTilesDialog::synchUI()
 
     ui->actionToggleCorners->setEnabled(mFurnitureGroup && remove);
     ui->actionClearTiles->setEnabled(clear);
+    ui->actionRemoveDuplicates->setEnabled(mFurnitureGroup != nullptr || mCategory != nullptr);
     ui->actionExpertMode->setEnabled(mFurnitureGroup == 0);
 
     mEntryOffsetUI->setVisible(mExpertMode && !mFurnitureGroup);
@@ -1594,6 +1685,48 @@ void BuildingTilesDialog::clearTiles()
     }
 }
 
+void BuildingTilesDialog::removeDuplicates()
+{
+    bool started = false;
+    if (mCategory != nullptr) {
+        QList<BuildingTileEntry*> entries = mCategory->entries();
+        for (int i = 0; i < entries.size(); i++) {
+            BuildingTileEntry *entry1 = entries.at(i);
+            for (int j = i + 1; j < entries.size(); j++) {
+                BuildingTileEntry *entry2 = entries.at(j);
+                if (entry1->equals(entry2)) {
+                    if (!started) {
+                        mUndoStack->beginMacro(tr("Remove Duplicates"));
+                        started = true;
+                    }
+                    mUndoStack->push(new RemoveTileFromCategory(this, mCategory, mCategory->indexOf(entry2)));
+                    entries.removeAt(j--);
+                }
+            }
+        }
+    }
+    if (mFurnitureGroup != nullptr) {
+        QList<FurnitureTiles*> tiles = mFurnitureGroup->mTiles;
+        for (int i = 0; i < tiles.size(); i++) {
+            FurnitureTiles *tiles1 = tiles.at(i);
+            for (int j = i + 1; j < tiles.size(); j++) {
+                FurnitureTiles *tiles2 = tiles.at(j);
+                if (tiles1->equals(tiles2)) {
+                    if (!started) {
+                        mUndoStack->beginMacro(tr("Remove Duplicates"));
+                        started = true;
+                    }
+                    mUndoStack->push(new RemoveFurnitureTiles(this, mFurnitureGroup, mFurnitureGroup->mTiles.indexOf(tiles2)));
+                    tiles.removeAt(j--);
+                }
+            }
+        }
+    }
+    if (started) {
+        mUndoStack->endMacro();
+    }
+}
+
 void BuildingTilesDialog::setExpertMode(bool expert)
 {
     if (expert != mExpertMode) {
@@ -1650,6 +1783,15 @@ void BuildingTilesDialog::tileDropped(const QString &tilesetName, int tileId)
 void BuildingTilesDialog::entryTileDropped(BuildingTileEntry *entry, int e, const QString &tileName)
 {
     mUndoStack->push(new ChangeEntryTile(this, entry, e, tileName));
+}
+
+void BuildingTilesDialog::entryTilesDropped(BuildingTileEntry *entry, const QVector<TileCategoryModel::GridDnD> &gridDnDs)
+{
+    mUndoStack->beginMacro(tr("Change Entry Tiles"));
+    for (const TileCategoryModel::GridDnD& gridDnD : gridDnDs) {
+        mUndoStack->push(new ChangeEntryTile(this, entry, gridDnD.e, gridDnD.tileName));
+    }
+    mUndoStack->endMacro();
 }
 
 void BuildingTilesDialog::furnitureTileDropped(FurnitureTile *ftile, int x, int y,
@@ -1818,7 +1960,7 @@ void BuildingTilesDialog::tilesetChanged(Tileset *tileset)
 
     int row = TileMetaInfoMgr::instance()->indexOf(tileset);
     if (QListWidgetItem *item = ui->tilesetList->item(row))
-        item->setForeground(tileset->isMissing() ? Qt::red : Qt::black);
+        item->setForeground(tileset->isMissing() ? Qt::red : QBrush());
 }
 
 void BuildingTilesDialog::undoTextChanged(const QString &text)
@@ -1961,6 +2103,177 @@ void BuildingTilesDialog::furnitureGrimeChanged(bool allow)
         mUndoStack->push(new ChangeFurnitureGrime(this, ftile, allow));
     if (ftiles.count() > 1)
         mUndoStack->endMacro();
+}
+
+static const QString SETTINGS_KEY_DIRECTORY = QStringLiteral("BuildingTilesDialog/ExportDirectory");
+
+void BuildingTilesDialog::importFile()
+{
+    if (checkOpenDocuments()) {
+        return;
+    }
+    QSettings &settings = BuildingPreferences::instance()->settings();
+    QString suggestedDirectory = BuildingPreferences::instance()->configPath();
+    suggestedDirectory = settings.value(SETTINGS_KEY_DIRECTORY, suggestedDirectory).toString();
+    QString caption = tr("Import Tiles and Furniture");
+    QString directory = QFileDialog::getExistingDirectory(this, caption, suggestedDirectory);
+    if (directory.isEmpty()) {
+        return;
+    }
+    settings.setValue(SETTINGS_KEY_DIRECTORY, QFileInfo(directory).absoluteFilePath());
+    directory = QDir::toNativeSeparators(directory);
+    QString file1 = directory + QDir::separator() + FurnitureGroups::instance()->txtName();
+    QString file2 = directory + QDir::separator() + BuildingTilesMgr::instance()->txtName();
+    QMessageBox::StandardButton result = QMessageBox::question(this, tr("Import Tiles and Furniture"),
+                                                               tr("This will replace the current tile and furniture assigments with the following files:\n\n%1\n%2\n\nChoose Yes to continue or No to cancel.").arg(file1).arg(file2));
+    if (result == QMessageBox::StandardButton::No) {
+        return;
+    }
+    reloadFrom(directory);
+}
+
+void BuildingTilesDialog::exportFile()
+{
+    QSettings &settings = BuildingPreferences::instance()->settings();
+    QString suggestedDirectory = BuildingPreferences::instance()->configPath();
+    suggestedDirectory = settings.value(SETTINGS_KEY_DIRECTORY, suggestedDirectory).toString();
+    QString caption = tr("Export Tiles and Furniture");
+    QString directory = QFileDialog::getExistingDirectory(this, caption, suggestedDirectory);
+    if (directory.isEmpty()) {
+        return;
+    }
+    settings.setValue(SETTINGS_KEY_DIRECTORY, QFileInfo(directory).absoluteFilePath());
+    directory = QDir::toNativeSeparators(directory);
+    if (!exportFurnitureTxt(directory)) {
+        return;
+    }
+    if (!exportTilesTxt(directory)) {
+        return;
+    }
+    QString file1 = directory + QDir::separator() + FurnitureGroups::instance()->txtName();
+    QString file2 = directory + QDir::separator() + BuildingTilesMgr::instance()->txtName();
+    QMessageBox::information(this, tr("Export Tiles and Furniture"), tr("Saved.\n%1\n%2").arg(file1).arg(file2));
+}
+
+void BuildingTilesDialog::reloadFile()
+{
+    if (checkOpenDocuments()) {
+        return;
+    }
+    QSettings &settings = BuildingPreferences::instance()->settings();
+    QString directory = settings.value(SETTINGS_KEY_DIRECTORY, QString()).toString();
+    if (directory.isEmpty()) {
+        importFile();
+        return;
+    }
+    if (!QFileInfo::exists(directory) || !QFileInfo(directory).isDir()) {
+        importFile();
+        return;
+    }
+    directory = QDir::toNativeSeparators(directory);
+    QString file1 = directory + QDir::separator() + FurnitureGroups::instance()->txtName();
+    QString file2 = directory + QDir::separator() + BuildingTilesMgr::instance()->txtName();
+    QMessageBox::StandardButton result = QMessageBox::question(this, tr("Reload Tiles and Furniture"),
+                                                               tr("This will replace the current tile and furniture assigments with the following files:\n\n%1\n%2\n\nChoose Yes to continue or No to cancel.").arg(file1).arg(file2));
+    if (result == QMessageBox::StandardButton::No) {
+        return;
+    }
+    reloadFrom(directory);
+}
+
+bool BuildingTilesDialog::exportFurnitureTxt(const QString &directory)
+{
+    BuildingFurnitureFile file;
+    const QString txtName = FurnitureGroups::instance()->txtName();
+    int revision = FurnitureGroups::instance()->revision();
+    int sourceRevision = FurnitureGroups::instance()->sourceRevision();
+    if (file.write(directory + QDir::separator() + txtName, revision, sourceRevision, FurnitureGroups::instance()->groups())) {
+        return true;
+    }
+    QMessageBox::warning(this, tr("Export %1 Failed").arg(txtName), file.errorString());
+    return false;
+}
+
+bool BuildingTilesDialog::exportTilesTxt(const QString &directory)
+{
+    BuildingTilesFile file;
+    const QString txtName = BuildingTilesMgr::instance()->txtName();
+    int revision = BuildingTilesMgr::instance()->revision();
+    int sourceRevision = BuildingTilesMgr::instance()->sourceRevision();
+    if (file.write(directory + QDir::separator() + txtName, revision, sourceRevision, BuildingTilesMgr::instance()->categories().toVector())) {
+        return true;
+    }
+    QMessageBox::warning(this, tr("Export %1 Failed").arg(txtName), file.errorString());
+    return false;
+}
+
+void BuildingTilesDialog::reloadFrom(const QString &directory)
+{
+    mUndoStack->beginMacro(tr("Import Tiles and Furniture"));
+    reloadBuildingFurnitureTxt(directory);
+    reloadBuildingTilesTxt(directory);
+    mUndoStack->endMacro();
+}
+
+bool BuildingTilesDialog::reloadBuildingFurnitureTxt(const QString &directory)
+{
+    BuildingFurnitureFile file;
+    const QString txtName = FurnitureGroups::instance()->txtName();
+    if (!file.read(directory + QDir::separator() + txtName)) {
+        QMessageBox::warning(this, tr("Reading %1 Failed\n%2"), txtName, file.errorString());
+        return false;
+    }
+    const int revision = file.getRevision();
+    const int sourceRevision = file.getSourceRevision();
+    const QList<FurnitureGroup*> newGroups = file.takeGroups();
+    const FurnitureGroups *fgs = FurnitureGroups::instance();
+    mUndoStack->beginMacro(tr("Import %1").arg(txtName));
+    mUndoStack->push(new SetFurnitureGroupsRevision(this, revision, sourceRevision));
+    for (int i = fgs->groupCount() - 1; i >= 0; i--) {
+        mUndoStack->push(new RemoveCategory(this, i));
+    }
+    for (FurnitureGroup *group : newGroups) {
+        mUndoStack->push(new AddCategory(this, fgs->groupCount(), group));
+    }
+    mUndoStack->endMacro();
+    return true;
+}
+
+bool BuildingTilesDialog::reloadBuildingTilesTxt(const QString &directory)
+{
+    BuildingTilesFile file;
+    BuildingTilesMgr *btm = BuildingTilesMgr::instance();
+    const QString txtName = btm->txtName();
+    if (!file.read(directory + QDir::separator() + txtName)) {
+        QMessageBox::warning(this, tr("Reading %1 Failed\n%2"), txtName, file.errorString());
+        return false;
+    }
+    const int revision = file.getRevision();
+    const int sourceRevision = file.getSourceRevision();
+    mUndoStack->beginMacro(tr("Import %1").arg(txtName));
+    mUndoStack->push(new SetBuildingTilesRevision(this, revision, sourceRevision));
+    for (int i = 0; i < btm->categoryCount(); i++) {
+        BuildingTileCategory *category = btm->category(i);
+        for (int j = category->entryCount() - 1; j >= 0; j--) {
+            mUndoStack->push(new RemoveTileFromCategory(this, category, j));
+        }
+        BuildingTileCategory *sourceCategory = file.categories().at(i);
+        for (int j = 0; j < sourceCategory->entryCount(); j++) {
+            BuildingTileEntry *entry = sourceCategory->entry(j)->createCopy(category);
+            mUndoStack->push(new AddTileToCategory(this, category, j, entry));
+        }
+    }
+    mUndoStack->endMacro();
+    return true;
+}
+
+bool BuildingTilesDialog::checkOpenDocuments()
+{
+    if (BuildingDocumentMgr::instance()->documentCount() == 0) {
+        return false;
+    }
+    QMessageBox::information(this, tr("BuildingFurniture.txt"), tr("Close all open BulidingEd documents first."));
+    return true;
 }
 
 void BuildingTilesDialog::accept()

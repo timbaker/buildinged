@@ -36,7 +36,8 @@ using namespace BuildingEditor;
 #define VERSION1 1
 #define VERSION2 2
 #define VERSION3 3
-#define VERSION_LATEST VERSION3
+#define VERSION4 4
+#define VERSION_LATEST VERSION4
 
 #if defined(Q_OS_WIN) && (_MSC_VER >= 1600)
 // Hmmmm.  libtiled.dll defines the Properties class as so:
@@ -95,6 +96,11 @@ public:
 
         for (int i = 0; i < Building::TileCount; i++)
             w.writeAttribute(building->enumToString(i), entryIndex(building->tile(i)));
+
+        if (building->hasBasementAccess()) {
+            BasementAccess ba = building->basementAccess();
+            building->properties().insert(QStringLiteral("BasementAccess"), ba.toString());
+        }
 
         // Put these near the beginning of the file so MapManager::MapInfoReader can read properties without reading much text.
         writeProperties(w, building->properties());
@@ -304,6 +310,29 @@ public:
         w.writeCharacters(text);
         w.writeEndElement();
 
+        // Write square attributes
+        text.clear();
+        text += newline;
+        count = 0;
+        Tiled::PropertiesGrid *sag = floor->squarePropertiesGrid();
+        for (int y = 0; y < floor->height(); y++) {
+            for (int x = 0; x < floor->width(); x++) {
+                if (sag->hasPropertiesAt(x, y) == false)
+                    text += zero;
+                else {
+                    const Tiled::Properties& sa = sag->at(x, y);
+                    int bits = toBits(sa, getSquarePropertyNames());
+                    text += QString::number(bits, 16);
+                }
+                if (++count < max)
+                    text += comma;
+            }
+            text += newline;
+        }
+        w.writeStartElement(QLatin1String("attributes"));
+        w.writeCharacters(text);
+        w.writeEndElement();
+
         // Write user tile indices.
         foreach (QString layerName, floor->grimeLayers()) {
             if (floor->grime()[layerName]->isEmpty())
@@ -464,6 +493,18 @@ public:
         return QString::number(index);
     }
 
+    int toBits(const Tiled::Properties& properties, const QStringList& attributeNames) const
+    {
+        int bits = 0;
+        for (const QString& key : properties.keys()) {
+            int index = attributeNames.indexOf(key);
+            if (index != -1) {
+                bits |= 1 << index;
+            }
+        }
+        return bits;
+    }
+
     Building *mBuilding;
     QString mError;
     QDir mMapDir;
@@ -523,8 +564,13 @@ bool BuildingWriter::write(Building *building, const QString &filePath)
 
     // /tmp/tempXYZ -> foo.tbx
     tempFile.close();
-    if (!tempFile.rename(filePath)) {
-        d->mError = QString(QLatin1String("Error renaming file!\nFrom: %1\nTo: %2\n\n%3"))
+    if (tempFile.rename(filePath)) {
+        // If anything above failed, the temp file should auto-remove, but not after
+        // a successful save.
+        tempFile.setAutoRemove(false);
+    // QTemporaryFile::rename() doesn't work across filesystems.  Should use QSaveFile instead.
+    } else if (!tempFile.copy(filePath)) {
+        d->mError = QString(QLatin1String("Error copying file!\nFrom: %1\nTo: %2\n\n%3"))
                 .arg(tempFile.fileName())
                 .arg(filePath)
                 .arg(tempFile.errorString());
@@ -533,10 +579,6 @@ bool BuildingWriter::write(Building *building, const QString &filePath)
             backupFile.rename(filePath); // might fail
         return false;
     }
-
-    // If anything above failed, the temp file should auto-remove, but not after
-    // a successful save.
-    tempFile.setAutoRemove(false);
 
     if (filePath.endsWith(QLatin1String(".autosave")))
         if (backupFile.exists())

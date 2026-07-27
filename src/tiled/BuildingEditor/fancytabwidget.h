@@ -80,18 +80,22 @@ public:
     FancyTabBar(QWidget *parent = 0);
     ~FancyTabBar();
 
-    bool event(QEvent *event);
+    bool event(QEvent *event) override;
 
-    void paintEvent(QPaintEvent *event);
+    void paintEvent(QPaintEvent *event) override;
     void paintTab(QPainter *painter, int tabIndex) const;
-    void mousePressEvent(QMouseEvent *);
-    void mouseMoveEvent(QMouseEvent *);
-    void enterEvent(QEvent *);
-    void leaveEvent(QEvent *);
+    void mousePressEvent(QMouseEvent *) override;
+    void mouseMoveEvent(QMouseEvent *) override;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    void enterEvent(QEnterEvent *) override;
+#else
+    void enterEvent(QEvent *) override;
+#endif
+    void leaveEvent(QEvent *) override;
     bool validIndex(int index) const { return index >= 0 && index < m_tabs.count(); }
 
-    QSize sizeHint() const;
-    QSize minimumSizeHint() const;
+    QSize sizeHint() const override;
+    QSize minimumSizeHint() const override;
 
     void setTabEnabled(int index, bool enable);
     bool isTabEnabled(int index) const;

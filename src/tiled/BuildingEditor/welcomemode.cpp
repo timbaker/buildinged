@@ -24,6 +24,7 @@
 #include "buildingwriter.h"
 #include "ui_buildingeditorwindow.h"
 #include "buildingpreferences.h"
+#include "simplefile.h"
 
 #ifdef BUILDINGED_SA
 #include "mapmanager.h"
@@ -31,6 +32,7 @@
 #include "mainwindow.h"
 #endif
 #include "mapimagemanager.h"
+#include "preferences.h"
 
 #include <QCompleter>
 #include <QDebug>
@@ -82,7 +84,7 @@ LinkItem::LinkItem(const QString &text1, const QString &text2, QGraphicsItem *pa
     mBoundingRect.setRight(400);
     bg->setRect(mBoundingRect);
 
-    //        setFlag(ItemHasNoContents);
+//    setFlag(ItemHasNoContents);
     setAcceptHoverEvents(true);
 }
 
@@ -163,6 +165,8 @@ WelcomeMode::WelcomeMode(QObject *parent) :
     mWidget = new QWidget;
     mWidget->setObjectName(QLatin1String("WelcomeModeWidget"));
     ui->setupUi(mWidget);
+
+    ui->graphicsView->setBackgroundBrush(Qt::gray);
 
     QGraphicsScene *scene = new QGraphicsScene(ui->graphicsView);
     ui->graphicsView->setScene(scene);
@@ -278,6 +282,11 @@ WelcomeMode::WelcomeMode(QObject *parent) :
     connect(ui->legendCombo, &QComboBox::editTextChanged,
             this, &WelcomeMode::legendTextChanged);
 
+    connect(ui->roomToneCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &WelcomeMode::roomToneIndexChanged);
+    connect(ui->roomToneCombo, &QComboBox::editTextChanged,
+            this, &WelcomeMode::roomToneTextChanged);
+
     // TODO: set valid Legend values from a .txt file
     mLegendStrings += QStringLiteral("<NONE>");
     mLegendStrings += QStringLiteral("CommunityServices");
@@ -291,6 +300,13 @@ WelcomeMode::WelcomeMode(QObject *parent) :
     ui->legendCombo->setDuplicatesEnabled(false);
     ui->legendCombo->addItems(mLegendStrings);
 
+    // TODO: set valid RoomTone values from a .txt file
+    mRoomToneStrings += QStringLiteral("<NONE>");
+    readRoomToneTxt();
+    ui->roomToneCombo->lineEdit()->setPlaceholderText(QStringLiteral("<NONE>"));
+    ui->roomToneCombo->setDuplicatesEnabled(false);
+    ui->roomToneCombo->addItems(mRoomToneStrings);
+
     setWidget(mWidget);
 
     connect(MapImageManager::instance(), &MapImageManager::mapImageChanged,
@@ -300,6 +316,12 @@ WelcomeMode::WelcomeMode(QObject *parent) :
 
     connect(BuildingEditorWindow::instance(), &BuildingEditorWindow::recentFilesChanged,
             this, &WelcomeMode::setRecentFiles);
+
+    ui->findPrev->setEnabled(false);
+    ui->findNext->setEnabled(false);
+    connect(ui->findEdit, &QLineEdit::textEdited, this, &WelcomeMode::findTextEdited);
+    connect(ui->findPrev, &QToolButton::clicked, this, &WelcomeMode::findPrev);
+    connect(ui->findNext, &QToolButton::clicked, this, &WelcomeMode::findNext);
 }
 
 void WelcomeMode::readSettings(QSettings &settings)
@@ -355,11 +377,15 @@ void WelcomeMode::onMapsDirectoryChanged()
     mFSModel->setRootPath(mapsDir.canonicalPath());
     ui->treeView->setRootIndex(mFSModel->index(mapsDir.absolutePath()));
     ui->dirEdit->setText(QDir::toNativeSeparators(prefs->mapsDirectory()));
+    ui->treeView->setCurrentIndex(ui->treeView->model()->index(0, 0, ui->treeView->rootIndex()));
+    updateFindButtons();
 }
 
 void WelcomeMode::selectionChanged()
 {
+    updateFindButtons();
     synchLegendCombo();
+    synchRoomToneCombo();
 
     QString path = currentFilePath();
     if (path.isEmpty()) {
@@ -379,6 +405,163 @@ void WelcomeMode::selectionChanged()
     }
     mPreviewMapImage = mapImage;
 }
+
+void WelcomeMode::findTextEdited(const QString &text)
+{
+    if (text.isEmpty()) {
+        ui->findPrev->setEnabled(false);
+        ui->findNext->setEnabled(false);
+        return;
+    }
+    QModelIndex current = ui->treeView->currentIndex();
+    if (!current.isValid()) {
+        current = ui->treeView->model()->index(0, 0, ui->treeView->rootIndex());
+    }
+    QModelIndexList indices = ui->treeView->model()->match(current, Qt::DisplayRole, text, -1, Qt::MatchFlag::MatchContains | Qt::MatchFlag::MatchWrap);
+    if (indices.isEmpty()) {
+        ui->findPrev->setEnabled(false);
+        ui->findNext->setEnabled(false);
+        return;
+    }
+    std::sort(indices.begin(), indices.end(), [](const QModelIndex& a, const QModelIndex& b) {
+        if (a.row() != b.row()) {
+            return a.row() < b.row(); // Sort by row first
+        }
+        return a.column() < b.column(); // Then by column
+    });
+    if (indices.contains(current)) {
+        ui->treeView->setCurrentIndex(current);
+        ui->treeView->scrollTo(current);
+        updateFindButtons();
+        return;
+    }
+    int prev = -1, next = -1;
+    for (int i = 0; i < indices.size(); i++) {
+        const QModelIndex index2 = indices[i];
+        if (index2.row() < current.row()) {
+            prev = i;
+        } else if (index2.row() > current.row()) {
+            next = i;
+            break;
+        }
+    }
+    ui->findPrev->setEnabled(prev != -1);
+    ui->findNext->setEnabled(next != indices.size() - 1);
+    QModelIndex index = (next != -1) ? indices[next] : indices.first();
+    ui->treeView->setCurrentIndex(index);
+    ui->treeView->scrollTo(index);
+}
+
+void WelcomeMode::findPrev()
+{
+    QString text = ui->findEdit->text();
+    if (text.isEmpty()) {
+        return;
+    }
+    QModelIndex current = ui->treeView->currentIndex();
+    QModelIndexList indices = ui->treeView->model()->match(current, Qt::DisplayRole, text, -1, Qt::MatchFlag::MatchContains | Qt::MatchFlag::MatchWrap);
+    if (indices.isEmpty()) {
+        return;
+    }
+    std::sort(indices.begin(), indices.end(), [](const QModelIndex& a, const QModelIndex& b) {
+        if (a.row() != b.row()) {
+            return a.row() < b.row(); // Sort by row first
+        }
+        return a.column() < b.column(); // Then by column
+    });
+    int prev = -1, next = -1;
+    for (int i = 0; i < indices.size(); i++) {
+        const QModelIndex index2 = indices[i];
+        if (index2.row() < current.row()) {
+            prev = i;
+        } else if (index2.row() > current.row()) {
+            next = i;
+            break;
+        }
+    }
+    if (prev == -1) {
+        ui->treeView->setCurrentIndex(current);
+        ui->treeView->scrollTo(current);
+        return;
+    }
+    QModelIndex index = indices[prev];
+    ui->treeView->setCurrentIndex(index);
+    ui->treeView->scrollTo(index);
+}
+
+void WelcomeMode::findNext()
+{
+    QString text = ui->findEdit->text();
+    if (text.isEmpty()) {
+        return;
+    }
+    QModelIndex current = ui->treeView->currentIndex();
+    QModelIndexList indices = ui->treeView->model()->match(current, Qt::DisplayRole, text, -1, Qt::MatchFlag::MatchContains | Qt::MatchFlag::MatchWrap);
+    if (indices.isEmpty()) {
+        return;
+    }
+    std::sort(indices.begin(), indices.end(), [](const QModelIndex& a, const QModelIndex& b) {
+        if (a.row() != b.row()) {
+            return a.row() < b.row(); // Sort by row first
+        }
+        return a.column() < b.column(); // Then by column
+    });
+    int prev = -1, next = -1;
+    for (int i = 0; i < indices.size(); i++) {
+        const QModelIndex index2 = indices[i];
+        if (index2.row() < current.row()) {
+            prev = i;
+        } else if (index2.row() > current.row()) {
+            next = i;
+            break;
+        }
+    }
+    if (next == -1) {
+        ui->treeView->setCurrentIndex(current);
+        ui->treeView->scrollTo(current);
+        return;
+    }
+    QModelIndex index = indices[next];
+    ui->treeView->setCurrentIndex(index);
+    ui->treeView->scrollTo(index);
+}
+
+void WelcomeMode::updateFindButtons()
+{
+    QString text = ui->findEdit->text();
+    QModelIndexList selectedRows = ui->treeView->selectionModel()->selectedRows();
+    if (text.isEmpty() || selectedRows.isEmpty()) {
+        ui->findPrev->setEnabled(false);
+        ui->findNext->setEnabled(false);
+        return;
+    }
+    QModelIndex current = ui->treeView->currentIndex();
+    QModelIndexList indices = ui->treeView->model()->match(current, Qt::DisplayRole, text, -1, Qt::MatchFlag::MatchContains | Qt::MatchFlag::MatchWrap);
+    if (indices.isEmpty()) {
+        ui->findPrev->setEnabled(false);
+        ui->findNext->setEnabled(false);
+        return;
+    }
+    std::sort(indices.begin(), indices.end(), [](const QModelIndex& a, const QModelIndex& b) {
+        if (a.row() != b.row()) {
+            return a.row() < b.row(); // Sort by row first
+        }
+        return a.column() < b.column(); // Then by column
+    });
+    int prev = -1, next = -1;
+    for (int i = 0; i < indices.size(); i++) {
+        const QModelIndex index2 = indices[i];
+        if (index2.row() < current.row()) {
+            prev = i;
+        } else if (index2.row() > current.row()) {
+            next = i;
+            break;
+        }
+    }
+    ui->findPrev->setEnabled(prev != -1);
+    ui->findNext->setEnabled(next != -1);
+}
+
 
 void WelcomeMode::synchLegendCombo()
 {
@@ -410,6 +593,66 @@ void WelcomeMode::synchLegendCombo()
     mSynchLegend = false;
 }
 
+void WelcomeMode::synchRoomToneCombo()
+{
+    mSynchRoomTone = true;
+    ui->roomToneCombo->setCurrentIndex(-1);
+    ui->roomToneCombo->setEnabled(false);
+
+    QString path = currentFilePath();
+    if (path.isEmpty()) {
+        mSynchRoomTone = false;
+        return;
+    }
+    if (MapInfo *mapInfo = MapManager::instance()->mapInfo(path)) {
+        ui->roomToneCombo->setEnabled(true);
+        if (mapInfo->properties().contains(QStringLiteral("RoomTone"))) {
+            QString roomTone = mapInfo->properties()[QStringLiteral("RoomTone")].trimmed();
+            if (roomTone.isEmpty() == false) {
+                int index = ui->roomToneCombo->findText(roomTone); // mRoomToneStrings.indexOf(roomTone);
+                if (index == -1) {
+                    ui->roomToneCombo->addItem(roomTone);
+                    //mRoomToneStrings += roomTone;
+                    //index = mRoomToneStrings.size() - 1;
+                    index = ui->roomToneCombo->count() - 1;
+                }
+                ui->roomToneCombo->setCurrentIndex(index);
+            }
+        }
+    }
+    mSynchRoomTone = false;
+}
+
+bool WelcomeMode::readRoomToneTxt()
+{
+    QString mError;
+
+    QString txtPath = Tiled::Internal::Preferences::instance()->appConfigPath(QLatin1String("RoomTone.txt"));
+    QFileInfo info(txtPath);
+    if (!info.exists()) {
+        mError = tr("The RoomTone.txt file doesn't exist.");
+        return false;
+    }
+
+    QString path = info.absoluteFilePath();
+    SimpleFile simple;
+    if (!simple.read(path)) {
+        mError = tr("Error reading %1.").arg(path);
+        return false;
+    }
+
+    for (const SimpleFileKeyValue &kv : simple.values) {
+        QString str = kv.name.trimmed();
+        if (str.compare(QLatin1String("version"), Qt::CaseInsensitive) == 0)
+            continue;
+        if (str.isEmpty())
+            continue;
+        mRoomToneStrings += str;
+    }
+
+    return true;
+}
+
 void WelcomeMode::onMapImageChanged(MapImage *mapImage)
 {
     if ((mapImage == mPreviewMapImage) && mapImage->isLoaded()) {
@@ -418,6 +661,7 @@ void WelcomeMode::onMapImageChanged(MapImage *mapImage)
         ui->label->setPixmap(QPixmap::fromImage(image));
 
         synchLegendCombo();
+        synchRoomToneCombo();
     }
 }
 
@@ -576,8 +820,73 @@ void WelcomeMode::legendIndexChanged(int index)
 void WelcomeMode::legendTextChanged(const QString &text)
 {
     // Called when typing text.
-#if !defined(QT_NO_DEBUG)
+#if defined(QT_NO_DEBUG)
+    Q_UNUSED(text)
+#else
     qDebug() << "legendTextChanged" << text;
+#endif
+}
+
+void WelcomeMode::roomToneIndexChanged(int index)
+{
+    // Called after ENTERing new text, after adding it to the combobox items.
+#if !defined(QT_NO_DEBUG)
+    qDebug() << "roomToneIndexChanged" << index;
+#endif
+    if (mSynchRoomTone)
+        return;
+
+    QString roomTone = (index < 1) ? QString() : ui->roomToneCombo->itemText(index).trimmed();
+
+    QString path = currentFilePath();
+    if (path.isEmpty())
+        return;
+
+    MapInfo *mapInfo = MapManager::instance()->mapInfo(path);
+    if (mapInfo == nullptr)
+        return;
+
+    QString ROOMTONE = QStringLiteral("RoomTone");
+    QString current = mapInfo->properties().value(ROOMTONE, QString());
+    if (roomTone.isEmpty()) {
+        if (current.isEmpty()) {
+            return;
+        }
+    } else {
+        if (current == roomTone) {
+            return;
+        }
+    }
+
+    qDebug() << "Updating RoomTone property in" << path;
+
+    // 1) Read the TBX
+    // 2) Set the RoomTone= property
+    // 3) Save the TBX
+    BuildingReader reader;
+    if (Building *building = reader.read(path)) {
+        reader.fix(building);
+        if (roomTone.isEmpty()) {
+            building->properties().remove(ROOMTONE);
+        } else {
+            building->properties().insert(ROOMTONE, roomTone);
+        }
+        BuildingWriter w;
+        if (!w.write(building, path)) {
+            QString error = w.errorString();
+            QMessageBox::warning(BuildingEditorWindow::instance(), tr("Error saving building"), error);
+        }
+        delete building;
+    }
+}
+
+void WelcomeMode::roomToneTextChanged(const QString &text)
+{
+    // Called when typing text.
+#if defined(QT_NO_DEBUG)
+    Q_UNUSED(text)
+#else
+    qDebug() << "roomToneTextChanged" << text;
 #endif
 }
 

@@ -18,6 +18,9 @@
 #ifndef BUILDINGDOCUMENT_H
 #define BUILDINGDOCUMENT_H
 
+#include "BuildingEditor/buildingundoredo.h"
+#include "BuildingEditor/buildingobjects.h"
+#include "BuildingEditor/furnituregroups.h"
 #include "properties.h"
 
 #include <QObject>
@@ -95,6 +98,18 @@ public:
     const QSet<BuildingObject*> &selectedObjects() const
     { return mSelectedObjects; }
 
+    template<typename UnaryPredicate>
+    QSet<BuildingObject*> selectedObjects(UnaryPredicate predicate)
+    {
+        QSet<BuildingObject*> ret;
+        for (BuildingObject *object : selectedObjects()) {
+            if (predicate(object)) {
+                ret += object;
+            }
+        }
+        return ret;
+    }
+
     const QRegion &roomSelection() const
     { return mRoomSelection; }
 
@@ -134,6 +149,7 @@ public:
     void insertObject(BuildingFloor *floor, int index, BuildingObject *object);
     BuildingObject *removeObject(BuildingFloor *floor, int index);
     QPoint moveObject(BuildingObject *object, const QPoint &pos);
+    FurnitureTile::FurnitureOrientation rotateFurniture(FurnitureObject *object, FurnitureTile::FurnitureOrientation orient);
     BuildingTileEntry *changeObjectTile(BuildingObject *object,
                                         BuildingTileEntry *tile, int alternate);
 
@@ -155,10 +171,11 @@ public:
                                   const QPoint &pos,
                                   const FloorTileGrid *tiles);
 
-    QSize resizeBuilding(const QSize &newSize);
+    QSize resizeBuilding(const QPoint& offset, const QSize &newSize);
     QVector<QVector<Room *> > resizeFloor(BuildingFloor *floor,
                                           const QVector<QVector<Room*> > &grid,
-                                          QMap<QString,FloorTileGrid*> &grime);
+                                          QMap<QString,FloorTileGrid*> &grime,
+                                          Tiled::PropertiesGrid **attributesGrid);
     void rotateBuilding(bool right);
     void flipBuilding(bool horizontal);
 
@@ -175,6 +192,10 @@ public:
     QRegion setTileSelection(const QRegion &selection);
 
     Tiled::Properties changeBuildingProperties(const Tiled::Properties& properties);
+
+    Tiled::PropertiesGrid *changeSquareProperties(int level, const QRegion& selection, const Tiled::PropertiesGrid &propertiesGrid);
+
+    BasementAccess setBasementAccess(const BasementAccess& ba);
     // -UNDO/REDO
 
 signals:
@@ -225,6 +246,10 @@ signals:
 
     void usedTilesChanged();
     void usedFurnitureChanged();
+
+    void squarePropertiesChanged(BuildingEditor::BuildingFloor *floor, const QRegion& region);
+
+    void basementAccessChanged();
 
 private:
     void checkUsedTile(BuildingTileEntry *entry);

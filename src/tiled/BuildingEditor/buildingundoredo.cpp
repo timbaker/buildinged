@@ -199,6 +199,23 @@ void MoveObject::swap()
 
 /////
 
+
+RotateFurniture::RotateFurniture(BuildingDocument *doc, FurnitureObject *object, FurnitureTile::FurnitureOrientation orient) :
+    QUndoCommand(QCoreApplication::translate("Undo Commands", "Rotate Furniture")),
+    mDocument(doc),
+    mObject(object),
+    mOrient(orient)
+{
+
+}
+
+void RotateFurniture::swap()
+{
+    mOrient = mDocument->rotateFurniture(mObject, mOrient);
+}
+
+/////
+
 ChangeObjectTile::ChangeObjectTile(BuildingDocument *doc, BuildingObject *object,
                                BuildingTileEntry *tile, bool mergeable, int alternate) :
     QUndoCommand(QCoreApplication::translate("Undo Commands", "Change Object Tile")),
@@ -280,9 +297,11 @@ void ReorderRoom::swap()
 
 /////
 
-ChangeRoom::ChangeRoom(BuildingDocument *doc, Room *room, const Room *data) :
+ChangeRoom::ChangeRoom(BuildingDocument *doc, Room *room, const Room *data, Change change, int tileIndex) :
     QUndoCommand(QCoreApplication::translate("Undo Commands", "Change Room")),
     mDocument(doc),
+    mChange(change),
+    mTileIndex(tileIndex),
     mRoom(room),
     mData(new Room(data))
 {
@@ -291,6 +310,27 @@ ChangeRoom::ChangeRoom(BuildingDocument *doc, Room *room, const Room *data) :
 ChangeRoom::~ChangeRoom()
 {
     delete mData;
+}
+
+int ChangeRoom::id() const
+{
+    return UndoCmd_ChangeRoom;
+}
+
+bool ChangeRoom::mergeWith(const QUndoCommand *other)
+{
+    if (other->id() != id()) {
+        return false;
+    }
+    if (mChange == Change::Tile) {
+        return false;
+    }
+    const ChangeRoom *other1 = static_cast<const ChangeRoom*>(other);
+    if (other1->mRoom != mRoom || other1->mChange != mChange || other1->mTileIndex != mTileIndex) {
+        return false;
+    }
+    // other->redo() was called to change the room, we don't need to udpate mData here, as that is the original state of mRoom.
+    return true;
 }
 
 void ChangeRoom::swap()
@@ -381,16 +421,18 @@ void PaintFloorTiles::swap()
 
 /////
 
-ResizeBuilding::ResizeBuilding(BuildingDocument *doc, const QSize &newSize) :
+ResizeBuilding::ResizeBuilding(BuildingDocument *doc, const QPoint &offset, const QSize &newSize) :
     QUndoCommand(QCoreApplication::translate("Undo Commands", "Resize Building")),
     mDocument(doc),
+    mOffset(offset),
     mSize(newSize)
 {
 }
 
 void ResizeBuilding::swap()
 {
-    mSize = mDocument->resizeBuilding(mSize);
+    mSize = mDocument->resizeBuilding(mOffset, mSize);
+    mOffset *= -1;
 }
 
 /////
@@ -432,15 +474,17 @@ ResizeFloor::ResizeFloor(BuildingDocument *doc, BuildingFloor *floor,
 {
     mGrid = floor->resizeGrid(newSize);
     mGrime = floor->resizeGrime(newSize + QSize(1, 1));
+    mSquarePropertiesGrid = floor->resizeSquarePropertiesGrid(newSize);
 }
 
 ResizeFloor::~ResizeFloor()
 {
+    delete mSquarePropertiesGrid;
 }
 
 void ResizeFloor::swap()
 {
-    mGrid = mDocument->resizeFloor(mFloor, mGrid, mGrime);
+    mGrid = mDocument->resizeFloor(mFloor, mGrid, mGrime, &mSquarePropertiesGrid);
 }
 
 /////
@@ -501,8 +545,7 @@ ReorderFloor::ReorderFloor(BuildingDocument *doc, int oldIndex, int newIndex) :
     QUndoCommand(QCoreApplication::translate("Undo Commands", "Reorder Floor")),
     mDocument(doc),
     mOldIndex(oldIndex),
-    mNewIndex(newIndex),
-    mFloor(0)
+    mNewIndex(newIndex)
 {
 }
 
@@ -711,4 +754,41 @@ ChangeBuildingKeyValues::ChangeBuildingKeyValues(BuildingDocument *doc, const Ti
 void ChangeBuildingKeyValues::swap()
 {
     mProperties = mDocument->changeBuildingProperties(mProperties);
+}
+
+/////
+
+ChangeSquareProperties::ChangeSquareProperties(BuildingDocument *doc, int level, const QRegion &selection, Tiled::PropertiesGrid *attributes) :
+    QUndoCommand(QCoreApplication::translate("Undo Commands", "Change Square Attributes")),
+    mDocument(doc),
+    mLevel(level),
+    mSelection(selection),
+    mAttributes(attributes)
+{
+
+}
+
+ChangeSquareProperties::~ChangeSquareProperties()
+{
+    delete mAttributes;
+}
+
+void ChangeSquareProperties::swap()
+{
+    mAttributes = mDocument->changeSquareProperties(mLevel, mSelection, *mAttributes);
+}
+
+/////
+
+SetBasementAccess::SetBasementAccess(BuildingDocument *doc, const BasementAccess &ba) :
+    QUndoCommand(QCoreApplication::translate("Undo Commands", "Set Basement Access")),
+    mDocument(doc),
+    mBasementAccess(ba)
+{
+
+}
+
+void SetBasementAccess::swap()
+{
+    mBasementAccess = mDocument->setBasementAccess(mBasementAccess);
 }

@@ -18,6 +18,8 @@
 #ifndef BUILDINGFLOOR_H
 #define BUILDINGFLOOR_H
 
+#include "propertiesgrid.h"
+
 #include <QHash>
 #include <QList>
 #include <QMap>
@@ -25,6 +27,7 @@
 #include <QRegion>
 #include <QString>
 #include <QStringList>
+#include <QTimer>
 #include <QVector>
 
 namespace BuildingEditor {
@@ -96,6 +99,8 @@ private:
     bool mUseVector;
     QString mEmptyCell;
 };
+
+extern const QStringList& getSquarePropertyNames();
 
 class BuildingFloor
 {
@@ -190,14 +195,14 @@ public:
         void ReplaceFurniture(BuildingTileEntry *tile, int offset = 0);
         void ReplaceFurniture(BuildingTile *btile, SquareSection sectionMin,
                               SquareSection sectionMax);
-        void ReplaceRoof(BuildingTileEntry *tile, int offset = 0);
+        void ReplaceRoof(RoofObject *object, BuildingTileEntry *tile, int offset = 0);
         void ReplaceRoofCap(BuildingTileEntry *tile, int offset = 0);
         void ReplaceRoofTop(BuildingTileEntry *tile, int offset);
         void ReplaceFloorGrime(BuildingTileEntry *grimeTile);
         void ReplaceWallGrime(BuildingTileEntry *grimeTile, const QString &userTileWalls, const QString &userTileWalls2);
         void ReplaceWallTrim();
 
-        int getWallOffset();
+        int getWallOffset(WallOrientation orient);
     };
 
     QVector<QVector<Square> > squares;
@@ -273,6 +278,7 @@ public:
 
     QVector<QVector<Room*> > resizeGrid(const QSize &newSize) const;
     QMap<QString,FloorTileGrid*> resizeGrime(const QSize &newSize) const;
+    Tiled::PropertiesGrid *resizeSquarePropertiesGrid(const QSize &newSize) const;
 
     void rotate(bool right);
     void flip(bool horizontal);
@@ -320,10 +326,15 @@ public:
         return 1.0f;
     }
 
+    Tiled::PropertiesGrid *squarePropertiesGrid() { return mSquarePropertiesGrid; }
+    Tiled::PropertiesGrid *setSquarePropertiesGrid(Tiled::PropertiesGrid *other);
+    Tiled::PropertiesGrid *createSquarePropertiesGrid() const;
+
 private:
     Building *mBuilding;
     QVector<QVector<Room*> > mRoomAtPos;
     QVector<QVector<int> > mIndexAtPos;
+    Tiled::PropertiesGrid* mSquarePropertiesGrid;
     int mLevel;
     QList<BuildingObject*> mObjects;
     QMap<QString,FloorTileGrid*> mGrimeGrid;
@@ -336,26 +347,48 @@ private:
 } // namespace BuildingEditor
 
 namespace Tiled {
+class Tileset;
 namespace Internal {
 class FileSystemWatcher;
 class TileDefFile;
+class TileDefTile;
+class TileDefTileset;
+
+class TileDefWatcherFile
+{
+public:
+    TileDefWatcherFile(const QString &filePath);
+    void check(Tiled::Internal::FileSystemWatcher &watcher);
+
+    QString mFilePath;
+    Tiled::Internal::TileDefFile *mTileDefFile;
+    bool tileDefFileChecked;
+    QString watching;
+};
 
 class TileDefWatcher : public QObject
 {
-        Q_OBJECT
+    Q_OBJECT
 public:
     TileDefWatcher();
 
     void check();
+    Tiled::Internal::TileDefTileset *tileset(const QString &tilesetName);
+    Tiled::Internal::TileDefTile *tile(const QString &tilesetName, int tileIndex);
+    TileDefWatcherFile *fileByName(const QString &filePath);
+    TileDefWatcherFile *fileByName(const QString &filePath, const QList<TileDefWatcherFile*> &files);
+
+signals:
+    void tilePropertiesChanged();
 
 public slots:
+    void preferencesChanged(const QStringList &tilePropertiesFiles);
     void fileChanged(const QString &path);
 
 public:
     Tiled::Internal::FileSystemWatcher *mWatcher;
-    Tiled::Internal::TileDefFile *mTileDefFile;
-    bool tileDefFileChecked;
-    bool watching;
+    QList<TileDefWatcherFile*> mFiles;
+    QTimer mChangedFilesTimer;
 };
 
 }

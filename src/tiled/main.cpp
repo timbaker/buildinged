@@ -193,6 +193,8 @@ static bool InitConfigFiles()
         }
     }
 
+    progress.update(QStringLiteral("Reading Tilesets.txt"));
+
     // Read Tilesets.txt before TMXConfig.txt in case we are upgrading
     // TMXConfig.txt from VERSION0 to VERSION1.
     if (!TileMetaInfoMgr::instance()->readTxt()) {
@@ -203,11 +205,15 @@ static bool InitConfigFiles()
         return false;
     }
 
+    progress.update(QStringLiteral("Scanning tilesets directory"));
+
     if (!TileMetaInfoMgr::instance()->addNewTilesets()) {
         QMessageBox::critical(BuildingEditorWindow::instance(), tr("It's no good, Jim!"),
                               tr("%1\n(while adding new tilesets)"));
         return false;
     }
+
+    progress.update(QStringLiteral("Reading TMXConfig.txt"));
 
     if (!BuildingTMX::instance()->readTxt()) {
         QMessageBox::critical(BuildingEditorWindow::instance(), tr("It's no good, Jim!"),
@@ -217,6 +223,8 @@ static bool InitConfigFiles()
         return false;
     }
 
+    progress.update(QStringLiteral("Reading BuildingTiles.txt"));
+
     if (!BuildingTilesMgr::instance()->readTxt()) {
         QMessageBox::critical(BuildingEditorWindow::instance(), tr("It's no good, Jim!"),
                               tr("Error while reading %1\n%2")
@@ -225,6 +233,8 @@ static bool InitConfigFiles()
         return false;
     }
 
+    progress.update(QStringLiteral("Reading BuildingFurniture.txt"));
+
     if (!FurnitureGroups::instance()->readTxt()) {
         QMessageBox::critical(BuildingEditorWindow::instance(), tr("It's no good, Jim!"),
                               tr("Error while reading %1\n%2")
@@ -232,6 +242,8 @@ static bool InitConfigFiles()
                               .arg(FurnitureGroups::instance()->errorString()));
         return false;
     }
+
+    progress.update(QStringLiteral("Reading BuildingTemplates.txt"));
 
     if (!BuildingTemplates::instance()->readTxt()) {
         QMessageBox::critical(BuildingEditorWindow::instance(), tr("It's no good, Jim!"),

@@ -25,6 +25,7 @@
 #include "BuildingEditor/buildingtiles.h"
 
 #include "map.h"
+#include "maplevel.h"
 #include "maprenderer.h"
 #include "tilelayer.h"
 #include "tileset.h"
@@ -188,9 +189,11 @@ void BmpBlender::tilesetRemoved(const QString &tilesetName)
 
 void BmpBlender::tilesToPixels(int x1, int y1, int x2, int y2)
 {
-    int index = mMap->indexOfLayer(STR_0Floor, Layer::TileLayerType);
+    MapLevel *mapLevel = mMap->mapLevelForZ(0);
+    if (mapLevel == nullptr) return;
+    int index = mapLevel->indexOfLayer(STR_0Floor, Layer::TileLayerType);
     if (index == -1) return;
-    TileLayer *floorLayer = mMap->layerAt(index)->asTileLayer();
+    TileLayer *floorLayer = mapLevel->layerAt(index)->asTileLayer();
 
     x1 = qBound(0, x1, mMap->width() - 1);
     x2 = qBound(0, x2, mMap->width() - 1);
@@ -268,7 +271,7 @@ void BmpBlender::testBlendEdgesEverywhere(bool enabled, QRegion& tileSelection)
 
     tileSelection = QRegion();
 
-    for (QString layerName : mTileLayers.keys()) {
+    for (const QString &layerName : mTileLayers.keys()) {
         TileLayer *layer1 = tileLayers[layerName];
         TileLayer *layer2 = mTileLayers[layerName];
         if (layer1 != nullptr && layer2 != nullptr) {
@@ -283,7 +286,7 @@ void BmpBlender::testBlendEdgesEverywhere(bool enabled, QRegion& tileSelection)
         }
     }
 
-    for (QString layerName : tileLayers.keys()) {
+    for (const QString &layerName : tileLayers.keys()) {
         TileLayer *layer2 = mTileLayers[layerName];
         if (layer2 == nullptr) {
             qDebug() << "EDGE-TILE-FIX: layer2" << layerName << "is null";
@@ -514,8 +517,9 @@ void BmpBlender::imagesToTileGrids(int x1, int y1, int x2, int y2)
 
     // Hack - If a pixel is black, and the user-drawn map tile in 0_Floor is
     // one of the Rules.txt tiles, pretend that that pixel exists in the image.
-    int index = mMap->indexOfLayer(STR_0Floor, Layer::TileLayerType);
-    TileLayer *floorLayer = (index == -1) ? nullptr : mMap->layerAt(index)->asTileLayer();
+    MapLevel *mapLevel = mMap->mapLevelForZ(0);
+    int index = mapLevel ? mapLevel->indexOfLayer(STR_0Floor, Layer::TileLayerType) : -1;
+    TileLayer *floorLayer = (index == -1) ? nullptr : mapLevel->layerAt(index)->asTileLayer();
 
     x1 = qBound(0, x1, mMap->width() - 1);
     x2 = qBound(0, x2, mMap->width() - 1);
@@ -526,7 +530,7 @@ void BmpBlender::imagesToTileGrids(int x1, int y1, int x2, int y2)
 
     for (int y = y1; y <= y2; y++) {
         for (int x = x1; x <= x2; x++) {
-            for (Tiled::SparseTileGrid *tileGrid : qAsConst(mTileGrids)) {
+            for (Tiled::SparseTileGrid *tileGrid : std::as_const(mTileGrids)) {
                 tileGrid->replace(x, y, emptyCell);
             }
             mFakeTileGrid->replace(x, y, emptyCell);
@@ -664,7 +668,7 @@ void BmpBlender::tileGridsToLayers(int x1, int y1, int x2, int y2)
     if (mTileLayers.isEmpty()) {
         foreach (QString layerName, mRuleLayers + mBlendLayers) {
             if (!mTileLayers.contains(layerName)) {
-                mTileLayers[layerName] = new TileLayer(layerName, 0, 0,
+                mTileLayers[layerName] = new TileLayer(MapLevel::layerNameWithoutPrefix(layerName), 0, 0,
                                                        mMap->width(), mMap->height());
             }
         }
@@ -926,7 +930,8 @@ bool BmpRulesFile::read(const QString &fileName)
                         kv.name != QLatin1String("color") &&
                         kv.name != QLatin1String("tiles") &&
                         kv.name != QLatin1String("condition") &&
-                        kv.name != QLatin1String("layer")) {
+                        kv.name != QLatin1String("layer") &&
+                        kv.name != QLatin1String("obsolete")) {
                     mError = tr("Line %1: Unknown rule attribute '%2'")
                             .arg(kv.lineNumber).arg(kv.name);
                     return false;
@@ -1009,7 +1014,12 @@ missingKV:
                 }
             }
 
-            AddRule(label, bitmapIndex, col, choices, layer, condition);
+            bool obsolete = false;
+            if (block.keyValue("obsolete", kv)) {
+                obsolete = kv.value.trimmed() == QStringLiteral("true");
+            }
+
+            AddRule(label, bitmapIndex, col, choices, layer, condition, obsolete);
         } else if (block.name == QLatin1String("alias")) {
             QString name;
             if (block.keyValue("name", kv)) {
@@ -1106,12 +1116,16 @@ bool BmpRulesFile::write(const QString &fileName)
 
         ruleBlock.addValue("layer", rule->targetLayer);
 
-        if (rule->condition != qRgb(0, 0, 0))
+        if (rule->condition != qRgb(0, 0, 0)) {
             ruleBlock.addValue("condition", QString::fromLatin1("%1 %2 %3")
                                .arg(qRed(rule->condition))
                                .arg(qGreen(rule->condition))
                                .arg(qBlue(rule->condition)));
+        }
 
+        if (rule->obsolete) {
+            ruleBlock.addValue("obsolete", QStringLiteral("true"));
+        }
         simpleFile.blocks += ruleBlock;
     }
 
@@ -1149,7 +1163,8 @@ void BmpRulesFile::fromMap(Map *map)
 
 void BmpRulesFile::AddRule(const QString &label, int bitmapIndex, QRgb col,
                            const QStringList &tiles,
-                           const QString &layer, QRgb condition)
+                           const QString &layer, QRgb condition,
+                           bool obsolete)
 {
     QStringList normalizedTileNames;
     foreach (QString tileName, tiles) {
@@ -1159,7 +1174,7 @@ void BmpRulesFile::AddRule(const QString &label, int bitmapIndex, QRgb col,
             normalizedTileNames += BuildingEditor::BuildingTilesMgr::normalizeTileName(tileName);
     }
 
-    mRules += new BmpRule(label, bitmapIndex, col, normalizedTileNames, layer, condition);
+    mRules += new BmpRule(label, bitmapIndex, col, normalizedTileNames, layer, condition, obsolete);
 }
 
 QRgb BmpRulesFile::rgbFromString(const QString &string, bool &ok)
@@ -1290,7 +1305,7 @@ bool BmpRulesFile::readOldFormat(const QString &fileName)
             }
         }
 
-        AddRule(QString(), bmpIndex, col, choices, layer, con);
+        AddRule(QString(), bmpIndex, col, choices, layer, con, false);
     }
 
     file.close();

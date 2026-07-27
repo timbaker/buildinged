@@ -30,6 +30,7 @@
 #include "mapmanager.h"
 #include "objectgroup.h"
 #include "orthogonalrenderer.h"
+#include "preferences.h"
 #include "staggeredrenderer.h"
 #include "tilelayer.h"
 #include "tilesetmanager.h"
@@ -708,6 +709,7 @@ void MapImageManager::mapLoaded(MapInfo *mapInfo)
     // FIXME: this shouldn't block the gui.
 #if 1
     QList<Tileset*> usedTilesets = mRenderMapComposite->usedTilesets();
+    usedTilesets.removeAll(TilesetManager::instance()->invisibleTileset());
     usedTilesets.removeAll(TilesetManager::instance()->missingTileset());
     TilesetManager::instance()->waitForTilesets(usedTilesets);
 #else
@@ -755,21 +757,55 @@ void MapImageManager::mapFailedToLoad(MapInfo *mapInfo)
 
 QFileInfo MapImageManager::imageFileInfo(const QString &mapFilePath)
 {
-    QFileInfo mapFileInfo(mapFilePath);
-    QDir mapDir = mapFileInfo.absoluteDir();
-    if (!mapDir.exists())
-        return QFileInfo();
-    QFileInfo imagesDirInfo(mapDir, QLatin1String(".pzeditor"));
-    if (!imagesDirInfo.exists()) {
-        if (!mapDir.mkdir(QLatin1String(".pzeditor")))
+    QString thumbnailsDirectory = Preferences::instance()->thumbnailsDirectory();
+    if (thumbnailsDirectory.isEmpty() || !QFileInfo::exists(thumbnailsDirectory)) {
+        QFileInfo mapFileInfo(mapFilePath);
+        QDir mapDir = mapFileInfo.absoluteDir();
+        if (!mapDir.exists()) {
             return QFileInfo();
+        }
+        QFileInfo imagesDirInfo(mapDir, QLatin1String(".pzeditor"));
+        if (!imagesDirInfo.exists()) {
+            if (!mapDir.mkdir(QLatin1String(".pzeditor"))) {
+                return QFileInfo();
+            }
+        }
+
+        // Need to distinguish BMPToTMX image formats, so include .png or .bmp
+        // in the file name.
+        QString suffix;
+        if (mapFileInfo.suffix() != QLatin1String("tmx")) {
+            suffix = QLatin1String("_") + mapFileInfo.suffix();
+        }
+
+        return QFileInfo(imagesDirInfo.absoluteFilePath() + QLatin1Char('/') +
+                         mapFileInfo.completeBaseName() + suffix + QLatin1String(".png"));
+    }
+
+    QFileInfo thumbnailDirInfo(thumbnailsDirectory);
+    QDir thumbnailDir(thumbnailDirInfo.absoluteFilePath());
+    QString canonicalDir = QFileInfo(mapFilePath).absoluteDir().canonicalPath();
+#ifdef Q_OS_WINDOWS
+    int colon = canonicalDir.indexOf(QLatin1Char(':'));
+    if (colon != -1) {
+        QString driveLetter = canonicalDir.left(colon);
+        canonicalDir = QLatin1String("Drive") + driveLetter + canonicalDir.mid(colon + 1);
+    }
+#endif
+    QFileInfo imagesDirInfo(thumbnailDir, canonicalDir);
+    if (!imagesDirInfo.exists()) {
+        if (!imagesDirInfo.dir().mkpath(imagesDirInfo.absoluteFilePath())) {
+            return QFileInfo();
+        }
     }
 
     // Need to distinguish BMPToTMX image formats, so include .png or .bmp
     // in the file name.
     QString suffix;
-    if (mapFileInfo.suffix() != QLatin1String("tmx"))
+    QFileInfo mapFileInfo(mapFilePath);
+    if (mapFileInfo.suffix() != QLatin1String("tmx")) {
         suffix = QLatin1String("_") + mapFileInfo.suffix();
+    }
 
     return QFileInfo(imagesDirInfo.absoluteFilePath() + QLatin1Char('/') +
                      mapFileInfo.completeBaseName() + suffix + QLatin1String(".png"));
@@ -1052,14 +1088,19 @@ MapImageData MapImageRenderWorker::generateMapImage(MapComposite *mapComposite)
         return MapImageData();
     }
 
+    renderer->setShowInvisibleTiles(false);
     renderer->mAbortDrawing = workerThread()->var();
 
     // Don't draw empty levels
+    int minLevel = 0;
     int maxLevel = 0;
     foreach (CompositeLayerGroup *layerGroup, mapComposite->sortedLayerGroups()) {
-        if (!layerGroup->bounds().isEmpty())
+        if (!layerGroup->bounds().isEmpty()) {
+            minLevel = std::min(minLevel, layerGroup->level());
             maxLevel = layerGroup->level();
+        }
     }
+    renderer->setMinLevel(minLevel);
     renderer->setMaxLevel(maxLevel);
 
     foreach (MapComposite *mc, mapComposite->maps())
@@ -1082,9 +1123,11 @@ MapImageData MapImageRenderWorker::generateMapImage(MapComposite *mapComposite)
                            QPainter::Antialiasing);
     painter.setTransform(QTransform::fromScale(scale, scale).translate(-sceneRect.left(), -sceneRect.top()));
 
+    OrderedCellsTemporaries vars;
+
     foreach (MapComposite::ZOrderItem zo, mapComposite->zOrder()) {
         if (zo.group) {
-            renderer->drawTileLayerGroup(&painter, zo.group);
+            renderer->drawTileLayerGroup(&painter, zo.group, QRectF(), reinterpret_cast<ZTileLayerGroupRenderData*>(&vars));
         } else if (TileLayer *tl = zo.layer->asTileLayer()) {
             if (tl->name().contains(QLatin1String("NoRender")))
                 continue;

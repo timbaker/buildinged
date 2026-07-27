@@ -48,7 +48,16 @@ macx {
 #OBJECTS_DIR = .obj
 
 SOURCES += colorbutton.cpp \
+    BuildingEditor/attributeeditmode.cpp \
+    BuildingEditor/attributeeditmode_p.cpp \
+    BuildingEditor/buildingattributesdock.cpp \
+    BuildingEditor/buildingfurniturefile.cpp \
     BuildingEditor/buildingkeyvaluesdialog.cpp \
+    BuildingEditor/buildingtilesfile.cpp \
+    BuildingEditor/exportbasementsdialog.cpp \
+    BuildingEditor/templatedocument.cpp \
+    BuildingEditor/templateroomsdialog.cpp \
+    BuildingEditor/templateundoredo.cpp \
     changeproperties.cpp \
     filesystemwatcher.cpp \
     mapcomposite.cpp \
@@ -58,7 +67,14 @@ SOURCES += colorbutton.cpp \
     propertiesmodel.cpp \
     propertiesview.cpp \
     resizedialog.cpp \
+    shortcut/actionmanager.cpp \
+    shortcut/keyboardshortcutfile.cpp \
+    shortcut/keyboardshortcutwindow.cpp \
+    shortcut/shortcuteditordelegate.cpp \
+    shortcut/shortcuteditormodel.cpp \
+    shortcut/shortcuteditorwidget.cpp \
     threads.cpp \
+    tiledeftextfile.cpp \
     tilemetainfodialog.cpp \
     tilemetainfomgr.cpp \
     tilesetmanager.cpp \
@@ -80,7 +96,16 @@ SOURCES += colorbutton.cpp \
     BuildingEditor/roofhiding.cpp
 
 HEADERS += colorbutton.h \
+    BuildingEditor/attributeeditmode.h \
+    BuildingEditor/attributeeditmode_p.h \
+    BuildingEditor/buildingattributesdock.h \
+    BuildingEditor/buildingfurniturefile.h \
     BuildingEditor/buildingkeyvaluesdialog.h \
+    BuildingEditor/buildingtilesfile.h \
+    BuildingEditor/exportbasementsdialog.h \
+    BuildingEditor/templatedocument.h \
+    BuildingEditor/templateroomsdialog.h \
+    BuildingEditor/templateundoredo.h \
     changeproperties.h \
     filesystemwatcher.h \
     mapcomposite.h \
@@ -90,7 +115,14 @@ HEADERS += colorbutton.h \
     propertiesmodel.h \
     propertiesview.h \
     resizedialog.h \
+    shortcut/actionmanager.h \
+    shortcut/keyboardshortcutfile.h \
+    shortcut/keyboardshortcutwindow.h \
+    shortcut/shortcuteditordelegate.h \
+    shortcut/shortcuteditormodel.h \
+    shortcut/shortcuteditorwidget.h \
     threads.h \
+    tiledeftextfile.h \
     tilemetainfodialog.h \
     tilemetainfomgr.h \
     tilesetmanager.h \
@@ -219,7 +251,9 @@ SOURCES += BuildingEditor/simplefile.cpp \
     BuildingEditor/buildingroomdef.cpp
 
 FORMS += BuildingEditor/buildingeditorwindow.ui \
+    BuildingEditor/buildingattributesdock.ui \
     BuildingEditor/buildingkeyvaluesdialog.ui \
+    BuildingEditor/exportbasementsdialog.ui \
     BuildingEditor/newbuildingdialog.ui \
     BuildingEditor/buildingpreferencesdialog.ui \
     BuildingEditor/buildingtemplatesdialog.ui \
@@ -236,7 +270,8 @@ FORMS += BuildingEditor/buildingeditorwindow.ui \
     BuildingEditor/buildingpropertiesdialog.ui \
     BuildingEditor/welcomemode.ui \
     addtilesetsdialog.ui \
-    propertiesdialog.ui
+    propertiesdialog.ui \
+    shortcut/keyboardshortcutwindow.ui
 
 macx {
     OBJECTIVE_SOURCES += macsupport.mm

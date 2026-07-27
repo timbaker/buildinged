@@ -30,8 +30,9 @@
 #endif
 
 #ifdef ZOMBOID
-#include <QCoreApplication>
+#include <QApplication>
 #include <QDir>
+#include <QTextStream>
 #endif
 #include <QDesktopServices>
 #include <QFileInfo>
@@ -91,11 +92,15 @@ Preferences::Preferences()
     mShowMiniMap = mSettings->value(QLatin1String("ShowMiniMap"), true).toBool();
     mMiniMapWidth = mSettings->value(QLatin1String("MiniMapWidth"), 256).toInt();
     mShowTileLayersPanel = mSettings->value(QLatin1String("ShowTileLayersPanel"), true).toBool();
+    mShowTileSelection = mSettings->value(QLatin1String("ShowTileSelection"), true).toBool();
+    mShowInvisibleTiles = mSettings->value(QLatin1String("ShowInvisibleTiles"), true).toBool();
     mBackgroundColor = QColor(mSettings->value(QLatin1String("BackgroundColor"),
                                                QColor(Qt::darkGray).name()).toString());
     mShowAdjacentMaps = mSettings->value(QLatin1String("ShowAdjacentMaps"), true).toBool();
     mHighlightRoomUnderPointer = mSettings->value(QLatin1String("HighlightRoomUnderPointer"), false).toBool();
     mTilesetBackgroundColor = QColor(mSettings->value(QLatin1String("TilesetBackgroundColor"), QColor(Qt::white).name()).toString());
+    mShowCellBorder = mSettings->value(QLatin1String("ShowCelLBorder"), true).toBool();
+    mTheme = mSettings->value(QLatin1String("Theme"), QLatin1String("Default")).toString();
 #endif
     mSettings->endGroup();
 #ifdef ZOMBOID
@@ -151,7 +156,24 @@ Preferences::Preferences()
     mConfigDirectory = mSettings->value(QLatin1String("ConfigDirectory"),
                                         configPath).toString();
 
+    mThumbnailsDirectory = mSettings->value(QLatin1String("Thumbnails/Directory"), QString()).toString();
+
     mWorldEdFiles = mSettings->value(QLatin1String("WorldEd/ProjectFile")).toStringList();
+    mTilePropertiesFiles = mSettings->value(QLatin1String("TilePropertiesFiles")).toStringList();
+
+    bool bHasNewTileDefinitions = false;
+    for (const QString &f : mTilePropertiesFiles) {
+        if (f.isEmpty())
+            continue;
+        if (f.contains(QLatin1String("newtiledefinitions.tiles"), Qt::CaseInsensitive)) {
+            bHasNewTileDefinitions = true;
+        }
+    }
+    if ((bHasNewTileDefinitions == false) && (mTilesDirectory.isEmpty() == false)) {
+        QFileInfo fileInfo(mTilesDirectory + QLatin1String("/newtiledefinitions.tiles"));
+        mTilePropertiesFiles += QDir::toNativeSeparators(fileInfo.canonicalFilePath());
+        mSettings->setValue(QLatin1String("TilePropertiesFiles"), mTilePropertiesFiles);
+    }
 #endif
 #ifndef ZOMBOID // do this in TilesetManager constructor to avoid infinite loop
     TilesetManager *tilesetManager = TilesetManager::instance();
@@ -378,6 +400,17 @@ void Preferences::setAutomappingDrawing(bool enabled)
 }
 
 #ifdef ZOMBOID
+QString Preferences::userPath() const
+{
+    QString userPath = QDir::homePath() + QLatin1Char('/') + QLatin1String(".TileZed");
+    return userPath;
+}
+
+QString Preferences::userPath(const QString &fileName) const
+{
+    return userPath() + QLatin1Char('/') + fileName;
+}
+
 QString Preferences::configPath() const
 {
     return mConfigDirectory;
@@ -392,10 +425,10 @@ QString Preferences::appConfigPath() const
 {
 #ifdef Q_OS_WIN
     return QCoreApplication::applicationDirPath();
+#elif defined(Q_OS_MACOS)
+    return QCoreApplication::applicationDirPath() + QLatin1String("/../Config");
 #elif defined(Q_OS_UNIX)
     return QCoreApplication::applicationDirPath() + QLatin1String("/../share/tilezed/config");
-#elif defined(Q_OS_MAC)
-    return QCoreApplication::applicationDirPath() + QLatin1String("/../Config");
 #else
 #error "wtf system is this???"
 #endif
@@ -410,10 +443,10 @@ QString Preferences::docsPath() const
 {
 #ifdef Q_OS_WIN
     return QCoreApplication::applicationDirPath() + QLatin1String("/docs");
+#elif defined(Q_OS_MACOS)
+    return QCoreApplication::applicationDirPath() + QLatin1String("/../Docs");
 #elif defined(Q_OS_UNIX)
     return QCoreApplication::applicationDirPath() + QLatin1String("/../share/tilezed/docs");
-#elif defined(Q_OS_MAC)
-    return QCoreApplication::applicationDirPath() + QLatin1String("/../Docs");
 #else
 #error "wtf system is this???"
 #endif
@@ -428,10 +461,10 @@ QString Preferences::luaPath() const
 {
 #ifdef Q_OS_WIN
     return QCoreApplication::applicationDirPath() + QLatin1String("/lua");
+#elif defined(Q_OS_MACOS)
+    return QCoreApplication::applicationDirPath() + QLatin1String("/../Lua");
 #elif defined(Q_OS_UNIX)
     return QCoreApplication::applicationDirPath() + QLatin1String("/../share/tilezed/lua");
-#elif defined(Q_OS_MAC)
-    return QCoreApplication::applicationDirPath() + QLatin1String("/../Lua");
 #else
 #error "wtf system is this???"
 #endif
@@ -571,6 +604,24 @@ void Preferences::setShowTileLayersPanel(bool show)
     emit showTileLayersPanelChanged(mShowTileLayersPanel);
 }
 
+void Preferences::setShowTileSelection(bool show)
+{
+    if (mShowTileSelection == show)
+        return;
+    mShowTileSelection = show;
+    mSettings->setValue(QLatin1String("Interface/ShowTileSelection"), show);
+    emit showTileSelectionChanged(mShowTileLayersPanel);
+}
+
+void Preferences::setShowInvisibleTiles(bool show)
+{
+    if (mShowInvisibleTiles == show)
+        return;
+    mShowInvisibleTiles = show;
+    mSettings->setValue(QLatin1String("Interface/ShowInvisibleTiles"), show);
+    emit showInvisibleTilesChanged(mShowInvisibleTiles);
+}
+
 void Preferences::setBackgroundColor(const QColor &bgColor)
 {
     if (mBackgroundColor == bgColor)
@@ -599,6 +650,15 @@ void Preferences::setWorldEdFiles(const QStringList &fileNames)
     emit worldEdFilesChanged(mWorldEdFiles);
 }
 
+void Preferences::setTilePropertiesFiles(const QStringList &fileNames)
+{
+    if (mTilePropertiesFiles == fileNames)
+        return;
+    mTilePropertiesFiles = fileNames;
+    mSettings->setValue(QLatin1String("TilePropertiesFiles"), mTilePropertiesFiles);
+    emit tilePropertiesFilesChanged(mTilePropertiesFiles);
+}
+
 void Preferences::setHighlightRoomUnderPointer(bool highlight)
 {
     if (mHighlightRoomUnderPointer == highlight)
@@ -625,6 +685,57 @@ void Preferences::setTilesetBackgroundColor(const QColor &color)
     mTilesetBackgroundColor = color;
     mSettings->setValue(QLatin1String("Interface/TilesetBackgroundColor"), mTilesetBackgroundColor.name());
     emit tilesetBackgroundColorChanged(mTilesetBackgroundColor);
+}
+
+void Preferences::setThumbnailsDirectory(const QString &path)
+{
+    mThumbnailsDirectory = path;
+    mSettings->setValue(QLatin1String("Thumbnails/Directory"), mThumbnailsDirectory);
+    emit thumbnailsDirectoryChanged(mThumbnailsDirectory);
+}
+
+void Preferences::setShowCellBorder(bool show)
+{
+    if (mShowCellBorder == show)
+        return;
+    mShowCellBorder = show;
+    mSettings->setValue(QLatin1String("Interface/ShowCellBorder"), mShowCellBorder);
+    emit showCellBorderChanged(mShowCellBorder);
+}
+
+void Preferences::setTheme(const QString &theme)
+{
+    if (mTheme == theme) {
+        return;
+    }
+    mTheme = theme;
+    applyTheme();
+}
+
+void Preferences::applyTheme() const
+{
+    mSettings->setValue(QLatin1String("Interface/Theme"), mTheme);
+    if (mTheme == QStringLiteral("Default")) {
+        qApp->setStyleSheet(QString());
+        return;
+    }
+    QString resource;
+    if (mTheme == QStringLiteral("Breeze (Dark)")) {
+        resource = QStringLiteral(":breeze/dark/stylesheet.qss");
+    } else if (mTheme == QStringLiteral("QDarkStyle (Dark)")) {
+        resource = QStringLiteral(":qdarkstyle/dark/darkstyle.qss");
+    } else if (mTheme == QStringLiteral("QDarkStyle (Light)")) {
+        resource = QStringLiteral(":qdarkstyle/light/lightstyle.qss");
+    } else {
+        return;
+    }
+    QFile theme_file(resource);
+    theme_file.open(QFile::ReadOnly | QFile::Text);
+    if(theme_file.isOpen()) {
+        QTextStream ts(&theme_file);
+        qApp->setStyleSheet(ts.readAll());        //set the theme here!
+        theme_file.close();
+    }
 }
 
 #endif // ZOMBOID

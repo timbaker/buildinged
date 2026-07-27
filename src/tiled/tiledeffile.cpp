@@ -19,6 +19,7 @@
 
 #include "tiledeffile.h"
 
+#include "tiledeftextfile.h"
 #include "tilesetmanager.h"
 
 #include "tileset.h"
@@ -207,6 +208,50 @@ TileDefTileset *TileDefFile::tileset(const QString &name) const
     return 0;
 }
 
+QList<TileDefTileset *> TileDefFile::takeTilesets()
+{
+    QList<TileDefTileset*> tilesets = mTilesets;
+    mTilesets.clear();
+    mTilesetByName.clear();
+    return tilesets;
+}
+
+QSet<int> TileDefFile::usedTilesetIDs() const
+{
+    QSet<int> result;
+    for (const TileDefTileset* tileset : mTilesets) {
+        result += tileset->mID;
+    }
+    return result;
+}
+
+QMap<QString, int> TileDefFile::createReassignMap() const
+{
+    QMap<QString,int> result;
+    QStringList sorted;
+    for (const TileDefTileset* tileset : mTilesets) {
+        sorted += tileset->mName;
+    }
+    sorted.sort();
+    int nextID = 1;
+    for (const QString& tilesetName : std::as_const(sorted)) {
+        result[tilesetName] = nextID++;
+    }
+    return result;
+}
+
+QMap<QString, int> TileDefFile::assignTilesetIDs(const QMap<QString,int> &mapping)
+{
+    QMap<QString,int> result;
+    for (const TileDefTileset* tileset : std::as_const(mTilesets)) {
+        result[tileset->mName] = tileset->mID;
+    }
+    for (auto it = mapping.cbegin(); it != mapping.cend(); it++) {
+        tileset(it.key())->mID = it.value();
+    }
+    return result;
+}
+
 /////
 
 TileDefProperties::TileDefProperties()
@@ -226,6 +271,7 @@ void TileDefProperties::addBoolean(const QString &name, const QString &shortName
                                                        reverseLogic);
     mProperties += prop;
     mPropertyByName[name] = prop;
+    mShortNameToName[shortName] = name;
 }
 
 void TileDefProperties::addInteger(const QString &name, const QString &shortName,
@@ -235,6 +281,7 @@ void TileDefProperties::addInteger(const QString &name, const QString &shortName
                                                        min, max, defaultValue);
     mProperties += prop;
     mPropertyByName[name] = prop;
+    mShortNameToName[shortName] = name;
 }
 
 void TileDefProperties::addString(const QString &name, const QString &shortName,
@@ -244,6 +291,7 @@ void TileDefProperties::addString(const QString &name, const QString &shortName,
                                                       defaultValue);
     mProperties += prop;
     mPropertyByName[name] = prop;
+    mShortNameToName[shortName] = name;
 }
 
 void TileDefProperties::addEnum(const QString &name, const QString &shortName,
@@ -259,6 +307,26 @@ void TileDefProperties::addEnum(const QString &name, const QString &shortName,
                                                     extraPropertyIfSet);
     mProperties += prop;
     mPropertyByName[name] = prop;
+    if (valueAsPropertyName) {
+        for (const QString &shortName1 : shortEnums) {
+            mShortNameToName[shortName1] = name;
+        }
+    } else {
+        mShortNameToName[shortName] = name;
+    }
+}
+
+QSet<QString> TileDefProperties::extraPropertiesIfSet() const
+{
+    QSet<QString> result;
+    for (TileDefProperty *prop : std::as_const(mProperties)) {
+        if (EnumTileDefProperty * prop1 = prop->asEnum()) {
+            if (!prop1->mExtraPropertyIfSet.isEmpty()) {
+                result += prop1->mExtraPropertyIfSet;
+            }
+        }
+    }
+    return result;
 }
 
 /////
@@ -348,11 +416,15 @@ void TileDefTileset::resize(int columns, int rows)
 
     mColumns = columns;
     mRows = rows;
-    mTiles = QVector<TileDefTile*>(mColumns * mRows);
+    mTiles.resize(mColumns * mRows);
+    mTiles.fill(nullptr);
     for (int y = 0; y < qMin(mRows, oldRows); y++) {
         for (int x = 0; x < qMin(mColumns, oldColumns); x++) {
-            mTiles[x + y * mColumns] = oldTiles[x + y * oldColumns];
-            oldTiles[x + y * oldColumns] = 0;
+            if (TileDefTile *tile = oldTiles[x + y * oldColumns]) {
+                tile->mID = x + y * mColumns;
+                mTiles[x + y * mColumns] = tile;
+                oldTiles[x + y * oldColumns] = nullptr;
+            }
         }
     }
     for (int i = 0; i < mTiles.size(); i++) {
@@ -508,7 +580,7 @@ bool TilePropertyMgr::readTxt()
     // directory if needed.
     if (!info.exists()) {
         QString source = Preferences::instance()->appConfigPath(txtName());
-        if (QFileInfo(source).exists()) {
+        if (QFileInfo::exists(source)) {
             if (!QFile::copy(source, txtPath())) {
                 mError = tr("Failed to copy file:\nFrom: %1\nTo: %2")
                         .arg(source).arg(txtPath());
@@ -565,6 +637,10 @@ bool TilePropertyMgr::addProperty(SimpleFileBlock &block)
     QString Type = block.value("Type");
     QString Name = block.value("Name");
     QString ShortName = block.value("ShortName");
+    QString ToolTip = block.value("ToolTip").trimmed();
+    if (ToolTip == QStringLiteral("<p></p>")) {
+        ToolTip.clear();
+    }
 
     if (Name.isEmpty()) {
         mError = tr("Empty or missing Name value.\n\n%2").arg(block.toString());
@@ -585,6 +661,7 @@ bool TilePropertyMgr::addProperty(SimpleFileBlock &block)
         bool ReverseLogic = toBoolean("ReverseLogic", block, ok);
         if (!ok) return false;
         mProperties.addBoolean(Name, ShortName, Default, ReverseLogic);
+        mProperties.property(Name)->setToolTip(ToolTip);
         return true;
     }
 
@@ -601,12 +678,14 @@ bool TilePropertyMgr::addProperty(SimpleFileBlock &block)
             return false;
         }
         mProperties.addInteger(Name, ShortName, Min, Max, Default);
+        mProperties.property(Name)->setToolTip(ToolTip);
         return true;
     }
 
     if (Type == QLatin1String("String")) {
         QString Default = block.value("Default");
         mProperties.addString(Name, ShortName, Default);
+        mProperties.property(Name)->setToolTip(ToolTip);
         return true;
     }
 
@@ -633,6 +712,7 @@ bool TilePropertyMgr::addProperty(SimpleFileBlock &block)
         QString ExtraPropertyIfSet = block.value("ExtraPropertyIfSet");
         mProperties.addEnum(Name, ShortName, enums, shortEnums, Default,
                             ValueAsPropertyName, ExtraPropertyIfSet);
+        mProperties.property(Name)->setToolTip(ToolTip);
         return true;
     }
 
@@ -780,4 +860,28 @@ TilePropertyMgr::~TilePropertyMgr()
 {
     qDeleteAll(mModifiers);
     mInstance = 0;
+}
+
+///// ///// ///// ///// /////
+
+bool TileDefFileReader::read(const QString &fileName, Tiled::Internal::TileDefFile &defFile)
+{
+    qDeleteAll(defFile.takeTilesets());
+
+    if (fileName.endsWith(QLatin1String(".txt"))) {
+        TileDefTextFile textFile;
+        if (textFile.read(fileName) == false) {
+            defFile.setErrorString(textFile.errorString());
+            return false;
+        }
+        for (TileDefTileset *tileset : textFile.takeTilesets()) {
+            defFile.insertTileset(defFile.tilesets().size(), tileset);
+        }
+        defFile.setFileName(fileName.mid(0, fileName.length() - 4));
+        return true;
+    }
+    if (!defFile.read(fileName)) {
+        return false;
+    }
+    return true;
 }

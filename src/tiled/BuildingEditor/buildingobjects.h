@@ -140,6 +140,24 @@ protected:
     BuildingTileEntry *mTile;
 };
 
+// Not an object
+class BasementAccess
+{
+public:
+    int mX = 0;
+    int mY = 0;
+    BuildingObject::Direction mDirection = BuildingObject::Direction::Invalid;
+
+    bool fromString(const QString& str);
+    QString toString() const;
+    QString dirString() const;
+
+    bool isValid() const
+    {
+        return mDirection != BuildingObject::Direction::Invalid;
+    }
+};
+
 class Door : public BuildingObject
 {
 public:
@@ -387,6 +405,19 @@ public:
         ShallowPeakWE,
         ShallowPeakNS,
 
+        Slope30W,
+        Slope30N,
+        Slope30E,
+        Slope30S,
+        Peak30WE,
+        Peak30NS,
+        Peak30Quad,
+
+        Dormer30W,
+        Dormer30N,
+        Dormer30E,
+        Dormer30S,
+
         CornerInnerSW,
         CornerInnerNW,
         CornerInnerNE,
@@ -395,6 +426,16 @@ public:
         CornerOuterNW,
         CornerOuterNE,
         CornerOuterSE,
+
+        CornerSlope30InnerSW,
+        CornerSlope30InnerNW,
+        CornerSlope30InnerNE,
+        CornerSlope30InnerSE,
+        CornerSlope30OuterSW,
+        CornerSlope30OuterNW,
+        CornerSlope30OuterNE,
+        CornerSlope30OuterSE,
+
         InvalidType
     };
 
@@ -469,7 +510,10 @@ public:
     { return mType; }
 
     bool isCorner() const
-    { return mType >= CornerInnerSW && mType <= CornerOuterSE; }
+    { return (mType >= CornerInnerSW && mType <= CornerOuterSE) || (mType >= CornerSlope30InnerSW && mType <= CornerSlope30OuterSE); }
+
+    bool isDormer() const
+    { return (mType >= DormerW && mType <= DormerS) || (mType >= Dormer30W && mType <= Dormer30S); }
 
     void setWidth(int width);
 
@@ -531,6 +575,17 @@ public:
         ShallowSlopeN1, ShallowSlopeN2,
         ShallowSlopeS1, ShallowSlopeS2,
 
+        // 30-degree sides
+        Slope30S1, Slope30S2, Slope30S3, Slope30S4, Slope30S5, Slope30S6,
+        Slope30E1, Slope30E2, Slope30E3, Slope30E4, Slope30E5, Slope30E6,
+        Slope30W1, Slope30W2, Slope30W3, Slope30W4, Slope30W5, Slope30W6,
+        Slope30N1, Slope30N2, Slope30N3, Slope30N4, Slope30N5, Slope30N6,
+
+        // 30-degree peaks
+        Peak30NS1, Peak30NS2, Peak30NS3, Peak30NS4, Peak30NS5, Peak30NS6, // intersection runs west-east
+        Peak30WE1, Peak30WE2, Peak30WE3, Peak30WE4, Peak30WE5, Peak30WE6, // intersection runs north-south
+        Peak30Quad1, Peak30Quad2, Peak30Quad3, Peak30Quad4, Peak30Quad5, Peak30Quad6,
+
         // Corners
         Inner1, Inner2, Inner3,
         Outer1, Outer2, Outer3,
@@ -538,6 +593,17 @@ public:
         OuterPt5, OuterOnePt5, OuterTwoPt5,
         CornerSW1, CornerSW2, CornerSW3,
         CornerNE1, CornerNE2, CornerNE3,
+
+        // 30-degree corners
+        InnerSlope30SE1, InnerSlope30SE2, InnerSlope30SE3, InnerSlope30SE4, InnerSlope30SE5, InnerSlope30SE6,
+        InnerSlope30NE1, InnerSlope30NE2, InnerSlope30NE3, InnerSlope30NE4, InnerSlope30NE5, InnerSlope30NE6,
+        InnerSlope30NW1, InnerSlope30NW2, InnerSlope30NW3, InnerSlope30NW4, InnerSlope30NW5, InnerSlope30NW6,
+        InnerSlope30SW1, InnerSlope30SW2, InnerSlope30SW3, InnerSlope30SW4, InnerSlope30SW5, InnerSlope30SW6,
+
+        OuterSlope30SE1, OuterSlope30SE2, OuterSlope30SE3, OuterSlope30SE4, OuterSlope30SE5, OuterSlope30SE6,
+        OuterSlope30NE1, OuterSlope30NE2, OuterSlope30NE3, OuterSlope30NE4, OuterSlope30NE5, OuterSlope30NE6,
+        OuterSlope30NW1, OuterSlope30NW2, OuterSlope30NW3, OuterSlope30NW4, OuterSlope30NW5, OuterSlope30NW6,
+        OuterSlope30SW1, OuterSlope30SW2, OuterSlope30SW3, OuterSlope30SW4, OuterSlope30SW5, OuterSlope30SW6,
 
         // Caps
         CapRiseE1, CapRiseE2, CapRiseE3, CapFallE1, CapFallE2, CapFallE3,
@@ -551,6 +617,14 @@ public:
         // Cap tiles for shallow (garage, trailer, etc) roofs
         CapShallowRiseS1, CapShallowRiseS2, CapShallowFallS1, CapShallowFallS2,
         CapShallowRiseE1, CapShallowRiseE2, CapShallowFallE1, CapShallowFallE2,
+
+        // Cap tiles for 30-degree roofs
+        CapSlope30RiseE1, CapSlope30RiseE2, CapSlope30RiseE3, CapSlope30RiseE4, CapSlope30RiseE5, CapSlope30RiseE6,
+        CapSlope30FallE1, CapSlope30FallE2, CapSlope30FallE3, CapSlope30FallE4, CapSlope30FallE5, CapSlope30FallE6,
+        CapSlope30RiseS1, CapSlope30RiseS2, CapSlope30RiseS3, CapSlope30RiseS4, CapSlope30RiseS5, CapSlope30RiseS6,
+        CapSlope30FallS1, CapSlope30FallS2, CapSlope30FallS3, CapSlope30FallS4, CapSlope30FallS5, CapSlope30FallS6,
+        CapPeak30E1, CapPeak30E2, CapPeak30E3, CapPeak30E4, CapPeak30E5, CapPeak30E6,
+        CapPeak30S1, CapPeak30S2, CapPeak30S3, CapPeak30S4, CapPeak30S5, CapPeak30S6,
 
         TileCount
     };

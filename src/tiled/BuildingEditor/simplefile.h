@@ -57,6 +57,8 @@ public:
         return value.split(re, Qt::SkipEmptyParts);
     }
 
+    void write(QTextStream& ts, int depth) const;
+
     QString name;
     QString value;
     bool multiValue;
@@ -72,6 +74,7 @@ public:
     QString name;
     QList<SimpleFileKeyValue> values;
     QList<SimpleFileBlock> blocks;
+    QStringList comments;
     int lineNumber;
 
     int findBlock(const QString &key) const;
@@ -109,13 +112,13 @@ public:
 
     void replaceValue(const QString &key, const QString &value, bool atEnd = true);
 
-    SimpleFileBlock block(const char *name)
+    SimpleFileBlock block(const char *name) const
     { return block(QLatin1String(name)); }
 
-    SimpleFileBlock block(const QString &name);
+    SimpleFileBlock block(const QString &name) const;
 
-    QString toString(int depth = -1);
-    void write(QTextStream &ts, int indent);
+    QString toString(int depth = -1) const;
+    void write(QTextStream &ts, int indent) const;
 
     void print();
 

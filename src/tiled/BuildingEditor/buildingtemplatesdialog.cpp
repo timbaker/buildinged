@@ -18,17 +18,25 @@
 #include "buildingtemplatesdialog.h"
 #include "ui_buildingtemplatesdialog.h"
 
+#include "buildingpreferences.h"
 #include "buildingtemplates.h"
 #include "buildingtiles.h"
 #include "choosebuildingtiledialog.h"
 #include "choosetemplatesdialog.h"
-#include "roomsdialog.h"
+#include "templatedocument.h"
+#include "templateroomsdialog.h"
 
+#include "preferences.h"
 #include "tile.h"
+#include "utils.h"
 
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QPainter>
+#include <QRandomGenerator>
 #include <QToolBar>
+#include <QUndoGroup>
+#include <QUndoStack>
 
 using namespace BuildingEditor;
 
@@ -36,9 +44,29 @@ BuildingTemplatesDialog::BuildingTemplatesDialog(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::BuildingTemplatesDialog),
     mTemplate(0),
-    mTileRow(-1)
+    mTileRow(-1),
+    mUndoGroup(new QUndoGroup(this)),
+    mUndoStack(new QUndoStack(this))
 {
     ui->setupUi(this);
+
+    mUndoGroup->addStack(mUndoStack);
+    mUndoGroup->setActiveStack(mUndoStack);
+
+    {
+        mUndoAction = mUndoGroup->createUndoAction(this, tr("Undo"));
+        mRedoAction = mUndoGroup->createRedoAction(this, tr("Redo"));
+        mUndoAction->setShortcuts(QKeySequence::Undo);
+        mRedoAction->setShortcuts(QKeySequence::Redo);
+        QIcon undoIcon(QLatin1String(":images/16x16/edit-undo.png"));
+        undoIcon.addFile(QLatin1String(":images/24x24/edit-undo.png"));
+        QIcon redoIcon(QLatin1String(":images/16x16/edit-redo.png"));
+        redoIcon.addFile(QLatin1String(":images/24x24/edit-redo.png"));
+        mUndoAction->setIcon(undoIcon);
+        mRedoAction->setIcon(redoIcon);
+        Tiled::Utils::setThemeIcon(mUndoAction, "edit-undo");
+        Tiled::Utils::setThemeIcon(mRedoAction, "edit-redo");
+    }
 
     ui->tilesList->clear();
     ui->tilesList->addItems(BuildingTemplate::enumTileNames());
@@ -61,7 +89,7 @@ BuildingTemplatesDialog::BuildingTemplatesDialog(QWidget *parent) :
     toolBar->addAction(ui->actionExport);
     ui->toolBarLayout->addWidget(toolBar);
 
-    foreach (BuildingTemplate *btemplate, mgr()->templates()) {
+    for (BuildingTemplate *btemplate : mgr()->templates()) {
         BuildingTemplate *clone = new BuildingTemplate(btemplate);
         mTemplates += clone;
         ui->templatesList->addItem(btemplate->name());
@@ -81,12 +109,16 @@ BuildingTemplatesDialog::BuildingTemplatesDialog(QWidget *parent) :
             this, &BuildingTemplatesDialog::tileSelectionChanged);
     connect(ui->editRooms, &QAbstractButton::clicked, this, &BuildingTemplatesDialog::editRooms);
     connect(ui->tilesList, &QAbstractItemView::activated, this, &BuildingTemplatesDialog::chooseTile);
+    connect(ui->clearTile, &QAbstractButton::clicked, this, &BuildingTemplatesDialog::clearTile);
+    connect(ui->randomTile, &QAbstractButton::clicked, this, &BuildingTemplatesDialog::randomTile);
     connect(ui->chooseTile, &QAbstractButton::clicked, this, &BuildingTemplatesDialog::chooseTile);
 
     ui->templatesList->setCurrentRow(0);
     ui->tilesList->setCurrentRow(0);
 
 //    synchUI();
+
+    readSettings();
 }
 
 BuildingTemplatesDialog::~BuildingTemplatesDialog()
@@ -259,13 +291,39 @@ void BuildingTemplatesDialog::nameEdited(const QString &name)
 
 void BuildingTemplatesDialog::editRooms()
 {
-    RoomsDialog dialog(mTemplate->rooms(), this);
+    /// TODO: Full undo-redo for edits made by this dialog.
+    /// Currently, only TemplateRoomsDialog uses undo/redo.
+    mUndoStack->clear();
+
+    TemplateDocument document(mTemplate);
+    TemplateRoomsDialog dialog(&document, nullptr, this);
     dialog.setWindowTitle(tr("Rooms in '%1'").arg(mTemplate->name()));
     if (dialog.exec() == QDialog::Accepted) {
-        mTemplate->clearRooms();
-        foreach (Room *dialogRoom, dialog.rooms())
-            mTemplate->addRoom(new Room(dialogRoom));
+//        mTemplate->clearRooms();
+//        foreach (Room *dialogRoom, dialog.rooms())
+//            mTemplate->addRoom(new Room(dialogRoom));
     }
+}
+
+void BuildingTemplatesDialog::clearTile()
+{
+    BuildingTileCategory *category = BuildingTilesMgr::instance()->category(mTemplate->categoryEnum(mTileRow));
+    if (category->canAssignNone()) {
+        mTemplate->setTile(mTileRow, category->noneTileEntry());
+        synchUI();
+    }
+}
+
+void BuildingTemplatesDialog::randomTile()
+{
+    BuildingTileCategory *category = BuildingTilesMgr::instance()->category(mTemplate->categoryEnum(mTileRow));
+    QList<BuildingTileEntry*> entries = category->entries();
+    if (category->canAssignNone()) {
+        entries += category->noneTileEntry();
+    }
+    QRandomGenerator *rand = QRandomGenerator::global();
+    mTemplate->setTile(mTileRow, entries.at(rand->bounded(entries.size())));
+    synchUI();
 }
 
 void BuildingTemplatesDialog::chooseTile()
@@ -280,26 +338,32 @@ void BuildingTemplatesDialog::chooseTile()
     if (dialog.exec() == QDialog::Accepted) {
         if (BuildingTileEntry *entry = dialog.selectedTile()) {
             mTemplate->setTile(mTileRow, entry);
-            setTilePixmap();
+            synchUI();
         }
     }
 }
 
 void BuildingTemplatesDialog::synchUI()
 {
-    ui->name->setEnabled(mTemplate != 0);
-    ui->actionRemove->setEnabled(mTemplate != 0);
-    ui->actionDuplicate->setEnabled(mTemplate != 0);
-    ui->actionMoveUp->setEnabled(mTemplate != 0 &&
-            mTemplates.indexOf(mTemplate) > 0);
-    ui->actionMoveDown->setEnabled(mTemplate != 0 &&
-            mTemplates.indexOf(mTemplate) < mTemplates.count() - 1);
+    const bool hasTemplate = mTemplate != nullptr;
+    ui->name->setEnabled(hasTemplate);
+    ui->actionRemove->setEnabled(hasTemplate);
+    ui->actionDuplicate->setEnabled(hasTemplate);
+    ui->actionMoveUp->setEnabled(hasTemplate &&mTemplates.indexOf(mTemplate) > 0);
+    ui->actionMoveDown->setEnabled(hasTemplate && mTemplates.indexOf(mTemplate) < mTemplates.count() - 1);
     ui->actionExport->setEnabled(mTemplates.size() > 0);
-    ui->tilesList->setEnabled(mTemplate != 0);
-    ui->chooseTile->setEnabled(mTemplate != 0 && mTileRow != -1);
-    ui->editRooms->setEnabled(mTemplate != 0);
+    ui->tilesList->setEnabled(hasTemplate);
+    bool enabled = false;
+    if ((selectedTile() != nullptr) && !selectedTile()->isNone()) {
+        BuildingTileCategory *category = BuildingTilesMgr::instance()->category(mTemplate->categoryEnum(mTileRow));
+        enabled = category->canAssignNone();
+    }
+    ui->clearTile->setEnabled(enabled);
+    ui->randomTile->setEnabled(hasTemplate && mTileRow != -1);
+    ui->chooseTile->setEnabled(hasTemplate && mTileRow != -1);
+    ui->editRooms->setEnabled(hasTemplate);
 
-    if (mTemplate != 0) {
+    if (hasTemplate) {
         ui->name->setText(mTemplate->name());
     } else {
         ui->name->clear();
@@ -308,11 +372,46 @@ void BuildingTemplatesDialog::synchUI()
     setTilePixmap();
 }
 
+void BuildingTemplatesDialog::accept()
+{
+    saveSettings();
+    QDialog::accept();
+}
+
+void BuildingTemplatesDialog::reject()
+{
+    saveSettings();
+    QDialog::reject();
+}
+
+void BuildingTemplatesDialog::saveSettings()
+{
+    QSettings &settings = BuildingPreferences::instance()->settings();
+    settings.beginGroup(QLatin1String("BuildingTemplatesDialog"));
+    settings.setValue(QLatin1String("geometry"), saveGeometry());
+    settings.endGroup();
+}
+
+void BuildingTemplatesDialog::readSettings()
+{
+    QSettings &settings = BuildingPreferences::instance()->settings();
+    settings.beginGroup(QLatin1String("BuildingTemplatesDialog"));
+    QByteArray geom = settings.value(QLatin1String("geometry")).toByteArray();
+    if (!geom.isEmpty())
+        restoreGeometry(geom);
+    settings.endGroup();
+}
+
 void BuildingTemplatesDialog::setTilePixmap()
 {
     if (BuildingTileEntry *entry = selectedTile()) {
         Tiled::Tile *tile = BuildingTilesMgr::instance()->tileFor(entry->displayTile());
-        ui->tileLabel->setPixmap(QPixmap::fromImage(tile->finalImage(64, 128)));
+        QPixmap pixmap(64, 128);
+        pixmap.fill(Tiled::Internal::Preferences::instance()->tilesetBackgroundColor());
+        QPainter painter(&pixmap);
+        painter.drawImage(0, 0, tile->finalImage(64, 128));
+        painter.end();
+        ui->tileLabel->setPixmap(pixmap);
     } else {
         ui->tileLabel->clear();
     }

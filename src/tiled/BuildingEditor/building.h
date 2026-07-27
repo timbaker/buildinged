@@ -27,6 +27,7 @@
 
 namespace BuildingEditor {
 
+class BasementAccess;
 class BuildingFloor;
 class BuildingObject;
 class BuildingTemplate;
@@ -34,7 +35,7 @@ class BuildingTileEntry;
 class FurnitureTiles;
 class Room;
 
-#define MAX_BUILDING_FLOORS 8
+#define MAX_BUILDING_FLOORS 32
 
 class Building
 {
@@ -177,7 +178,7 @@ public:
     void setRoofTopTile(BuildingTileEntry *entry)
     { mTiles[RoofTop] = entry; }
 
-    void resize(const QSize &newSize);
+    void resize(const QPoint& offset, const QSize &newSize);
     void rotate(bool right);
     void flip(bool horizontal);
 
@@ -194,6 +195,11 @@ public:
     const Tiled::Properties &properties() const
     { return mProperties; }
 
+    bool hasBasementAccess() const;
+    BasementAccess basementAccess() const;
+    void setBasementAccess(const BasementAccess& ba);
+    void clearBasementAccess();
+
 private:
     int mWidth, mHeight;
     QList<BuildingFloor*> mFloors;
@@ -202,6 +208,7 @@ private:
     QList<BuildingTileEntry*> mUsedTiles;
     QList<FurnitureTiles*> mUsedFurniture;
     Tiled::Properties mProperties;
+    BasementAccess *mBasementAccess = nullptr;
 };
 
 } // namespace BuildingEditor

@@ -20,6 +20,7 @@
 #include "buildingtiles.h"
 #include "furnituregroups.h"
 
+#include "preferences.h"
 #include "tilemetainfomgr.h"
 #include "tilesetmanager.h"
 #include "zoomable.h"
@@ -62,11 +63,9 @@ public:
         , mView(view)
     { }
 
-    void paint(QPainter *painter, const QStyleOptionViewItem &option,
-               const QModelIndex &index) const;
+    void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override;
 
-    QSize sizeHint(const QStyleOptionViewItem &option,
-                   const QModelIndex &index) const;
+    QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override;
 
     QPointF pixelToTileCoords(int mapWidth, int mapHeight, qreal x, qreal y) const;
     QPoint dropCoords(const QPoint &dragPos, const QModelIndex &index);
@@ -76,6 +75,8 @@ public:
     { return mView->zoomable()->scale(); }
 
     void itemResized(const QModelIndex &index);
+
+    void paintDivider(QPainter *painter, const QStyleOptionViewItem &option, FurnitureTile *ftile) const;
 
 private:
     FurnitureView *mView;
@@ -90,9 +91,10 @@ void FurnitureTileDelegate::paint(QPainter *painter,
     QString header = m->headerAt(index);
     if (!header.isEmpty()) {
         if (index.row() > 0) {
+            const QPen oldPen(painter->pen());
             painter->setPen(Qt::darkGray);
             painter->drawLine(option.rect.topLeft(), option.rect.topRight());
-            painter->setPen(Qt::black);
+            painter->setPen(oldPen);
         }
         // One slice of the tileset name is drawn in each column.
         if (index.column() == 0)
@@ -111,8 +113,10 @@ void FurnitureTileDelegate::paint(QPainter *painter,
     }
 
     FurnitureTile *ftile = m->tileAt(index);
-    if (!ftile)
+    if (!ftile) {
+        paintDivider(painter, option, nullptr);
         return;
+    }
 
     FurnitureTile *original = ftile;
     if (m->showResolved())
@@ -120,6 +124,8 @@ void FurnitureTileDelegate::paint(QPainter *painter,
 
     if (mView->zoomable()->smoothTransform())
         painter->setRenderHint(QPainter::SmoothPixmapTransform);
+
+    paintDivider(painter, option, ftile);
 
     qreal scale = this->scale();
     int extra = 2;
@@ -153,6 +159,7 @@ void FurnitureTileDelegate::paint(QPainter *painter,
 
     if (!m->showResolved()) {
         // Draw the tile grid.
+        const QPen oldPen(painter->pen());
         for (int y = 0; y < mapHeight; y++) {
             for (int x = 0; x < mapWidth; x++) {
                 QRect r = option.rect.adjusted(extra, extra, -extra, -extra);
@@ -172,7 +179,7 @@ void FurnitureTileDelegate::paint(QPainter *painter,
                     pen.setWidth(3);
                     painter->setPen(pen);
                     painter->drawPath(path);
-                    painter->setPen(QPen());
+                    painter->setPen(oldPen);
                 }
 
                 painter->drawLine(p1, p2); painter->drawLine(p3, p4);
@@ -315,6 +322,18 @@ void FurnitureTileDelegate::itemResized(const QModelIndex &index)
     emit sizeHintChanged(index);
 }
 
+void FurnitureTileDelegate::paintDivider(QPainter *painter, const QStyleOptionViewItem &option, FurnitureTile *ftile) const
+{
+    if (ftile != nullptr && ftile->isCornerOrient(ftile->orient())) {
+        // No divider line between cardinal and corner orientations.
+        return;
+    }
+    QPen oldPen = painter->pen();
+    painter->setPen(Qt::darkGray);
+    painter->drawLine(option.rect.topLeft(), option.rect.topRight());
+    painter->setPen(oldPen);
+}
+
 } // namespace BuildingEditor
 
 /////
@@ -363,9 +382,17 @@ void FurnitureView::dragMoveEvent(QDragMoveEvent *event)
     QAbstractItemView::dragMoveEvent(event);
 
     if (event->isAccepted()) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+        QModelIndex index = indexAt(event->position().toPoint());
+#else
         QModelIndex index = indexAt(event->pos());
+#endif
         if (FurnitureTile *ftile = model()->tileAt(index)) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+            QPoint dropCoords = mDelegate->dropCoords(event->position().toPoint(), index);
+#else
             QPoint dropCoords = mDelegate->dropCoords(event->pos(), index);
+#endif
             if (!QRect(0, 0, ftile->width() + 1, ftile->height() + 1).contains(dropCoords)) {
                 model()->setDropCoords(QPoint(-1,-1), QModelIndex());
 //                update(index);
@@ -452,6 +479,11 @@ void FurnitureView::tilesetRemoved(Tiled::Tileset *tileset)
     redisplay();
 }
 
+void FurnitureView::tilesetBackgroundColorChanged(const QColor &color)
+{
+    setStyleSheet(QStringLiteral("QTableView { alternate-background-color: %1; background-color: %1; }").arg(color.name()));
+}
+
 void FurnitureView::init()
 {
     setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
@@ -495,6 +527,9 @@ void FurnitureView::init()
             this, &FurnitureView::tilesetAdded);
     connect(TileMetaInfoMgr::instance(), &TileMetaInfoMgr::tilesetRemoved,
             this, &FurnitureView::tilesetRemoved);
+
+    tilesetBackgroundColorChanged(Preferences::instance()->tilesetBackgroundColor());
+    connect(Preferences::instance(), &Preferences::tilesetBackgroundColorChanged, this, &FurnitureView::tilesetBackgroundColorChanged);
 }
 
 /////

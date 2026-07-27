@@ -42,6 +42,7 @@ public:
         Floor,
         GrimeFloor,
         GrimeWall,
+        Ceiling,
         TileCount
     };
 
@@ -160,6 +161,23 @@ public:
 
     const QList<Room*> &rooms() const
     { return RoomList; }
+
+    int roomCount() const
+    { return rooms().size(); }
+
+    int indexOf(Room *room) const
+    { return rooms().indexOf(room); }
+
+    void insertRoom(int index, Room *room);
+    Room *removeRoom(int index);
+
+    Room *room(int index) const
+    {
+        if (index < 0 || index >= roomCount()) {
+            return nullptr;
+        }
+        return rooms().at(index);
+    }
 
     static QString enumToString(int n);
 

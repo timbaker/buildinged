@@ -58,8 +58,12 @@ public:
     virtual IntegerTileDefProperty *asInteger() { return 0; }
     virtual StringTileDefProperty *asString() { return 0; }
 
+    QString toolTip() const { return mToolTip; }
+    void setToolTip(const QString& tooltip) { mToolTip = tooltip; }
+
     QString mName;
     QString mShortName;
+    QString mToolTip;
 };
 
 class BooleanTileDefProperty : public TileDefProperty
@@ -177,8 +181,16 @@ public:
         return 0;
     }
 
+    QString shortNameToName(const QString &shortName) const
+    {
+        return mShortNameToName.value(shortName, QString());
+    }
+
+    QSet<QString> extraPropertiesIfSet() const;
+
     QList<TileDefProperty*> mProperties;
     QMap<QString,TileDefProperty*> mPropertyByName;
+    QMap<QString,QString> mShortNameToName;
     QList<int> mSeparators;
 };
 
@@ -749,8 +761,27 @@ public:
 
     void copy(const UIProperties &other)
     {
-        foreach (UIProperty *prop, mProperties)
+        for (UIProperty *prop : std::as_const(mProperties)) {
             prop->setValue(other.property(prop->mName)->value());
+        }
+    }
+
+    void copy(const UIProperties &other, const QStringList &propertyNames)
+    {
+        for (const QString& propertyName : std::as_const(propertyNames)) {
+            UIProperty *prop1 = property(propertyName);
+            UIProperty *prop2 = other.property(propertyName);
+            if (prop1 != nullptr && prop2 != nullptr) {
+                prop1->setValue(prop2->value());
+            }
+        }
+    }
+
+    UIProperties filtered(const QStringList &propertyNames) const
+    {
+        UIProperties copy;
+        copy.copy(*this, propertyNames);
+        return copy;
     }
 
     QMap<QString,UIProperty*> mProperties;
@@ -834,6 +865,9 @@ class TileDefFile : public QObject
 {
     Q_OBJECT
 public:
+    static const int MAX_TILESET_ID_GAME = 1024;
+    static const int MAX_TILESET_ID_MODS = 512;
+
     TileDefFile();
     ~TileDefFile();
 
@@ -856,8 +890,17 @@ public:
     const QList<TileDefTileset*> &tilesets() const
     { return mTilesets; }
 
+    QList<TileDefTileset*> takeTilesets();
+
     QStringList tilesetNames() const
     { return mTilesetByName.keys(); }
+
+    QSet<int> usedTilesetIDs() const;
+    QMap<QString,int> createReassignMap() const;
+    QMap<QString,int> assignTilesetIDs(const QMap<QString,int>& mapping);
+
+    void setErrorString(const QString &error)
+    { mError = error; }
 
     QString errorString() const
     { return mError; }
@@ -912,6 +955,12 @@ private:
     TileDefProperties mProperties;
     QList<TilePropertyModifier*> mModifiers;
     QString mError;
+};
+
+class TileDefFileReader
+{
+public:
+    bool read(const QString &fileName, Tiled::Internal::TileDefFile &tileDefFile);
 };
 
 } // namespace Internal

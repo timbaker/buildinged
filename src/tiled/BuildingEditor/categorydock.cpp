@@ -388,7 +388,7 @@ void CategoryDock::categorySelectionChanged()
             }
             QMap<QString,BuildingTileEntry*> entryMap;
             int i = 0;
-            foreach (BuildingTileEntry *entry, mCategory->entries()) {
+            for (BuildingTileEntry *entry : mCategory->entries()) {
                 QString key = entry->displayTile()->name() + QString::number(i++);
                 entryMap[key] = entry;
             }
@@ -778,36 +778,53 @@ void CategoryDock::currentRoofTileChanged(BuildingTileEntry *entry, int which, b
     BuildingEditorWindow::instance()->hackUpdateActions(); // in case the roof tools should be enabled
 
     QList<RoofObject*> objectList;
-    bool selectedOnly = (which == RoofObject::TileTop);
-    if (selectedOnly) {
-        foreach (BuildingObject *object, mCurrentDocument->selectedObjects()) {
-            if (RoofObject *roof = object->asRoof())
-                if (roof->tile(which) != entry)
+    const QSet<BuildingObject*> selectedRoofs = mCurrentDocument->selectedObjects([](BuildingObject* o) { return o->asRoof() != nullptr; });
+    if (!selectedRoofs.isEmpty()) {
+        for (BuildingObject *object : selectedRoofs) {
+            if (RoofObject *roof = object->asRoof()) {
+                if (roof->tile(which) != entry) {
                     objectList += roof;
+                }
+            }
         }
     } else {
         // Change the tiles for each roof object.
-        foreach (BuildingFloor *floor, mCurrentDocument->building()->floors()) {
-            foreach (BuildingObject *object, floor->objects()) {
-                if (RoofObject *roof = object->asRoof())
-                    if (roof->tile(which) != entry)
+        for (BuildingFloor *floor : mCurrentDocument->building()->floors()) {
+            for (BuildingObject *object : floor->objects()) {
+                if (RoofObject *roof = object->asRoof()) {
+                    if (roof->tile(which) != entry) {
                         objectList += roof;
+                    }
+                }
             }
         }
     }
 
     if (objectList.count()) {
-        if (objectList.count() > 1)
+        if (objectList.count() > 1) {
             mCurrentDocument->undoStack()->beginMacro(tr("Change Roof Tiles"));
-        foreach (RoofObject *roof, objectList)
+        }
+        for (RoofObject *roof : std::as_const(objectList)) {
             mCurrentDocument->undoStack()->push(new ChangeObjectTile(mCurrentDocument,
                                                                      roof,
                                                                      entry,
                                                                      mergeable,
                                                                      which));
-        if (objectList.count() > 1)
+        }
+        if (objectList.count() > 1) {
             mCurrentDocument->undoStack()->endMacro();
+        }
     }
+}
+
+void CategoryDock::currentCeilingChanged(BuildingTileEntry *entry, bool mergeable)
+{
+    if (currentRoom() == nullptr)
+        return;
+    mCurrentDocument->undoStack()->push(new ChangeRoomTile(mCurrentDocument,
+                                                           currentRoom(),
+                                                           Room::Ceiling,
+                                                           entry, mergeable));
 }
 
 void CategoryDock::selectCurrentCategoryTile()
@@ -914,6 +931,9 @@ void CategoryDock::selectCurrentCategoryTile()
         else
             currentTile = mCurrentDocument->building()->roofTopTile();
     }
+    if (mCategory->asCeiling() && currentRoom()) {
+        currentTile = currentRoom()->tile(Room::Ceiling);
+    }
     if (currentTile && (currentTile->isNone() || (currentTile->category() == mCategory))) {
         mSynching = true;
         QModelIndex index = ui->tilesetView->index(currentTile);
@@ -992,6 +1012,8 @@ void CategoryDock::tileSelectionChanged()
                 currentRoofTileChanged(entry, RoofObject::TileSlope, mergeable);
             else if (category->asRoofTops())
                 currentRoofTileChanged(entry, RoofObject::TileTop, mergeable);
+            else if (category->asCeiling())
+                currentCeilingChanged(entry, mergeable);
             else
                 qFatal("unhandled category in CategoryDock::tileSelectionChanged()");
         }

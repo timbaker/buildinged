@@ -65,6 +65,7 @@ void BaseTool::setEditor(BuildingBaseScene *editor)
 void BaseTool::setAction(QAction *action)
 {
     mAction = action;
+    mAction->setData(QVariant::fromValue<BaseTool*>(this));
     connect(mAction, &QAction::triggered, this, &BaseTool::makeCurrent);
 }
 
@@ -256,6 +257,19 @@ void ToolManager::setEditor(BuildingBaseScene *editor)
     }
 
     emit currentEditorChanged();
+}
+
+void ToolManager::shortcutEdited(QAction *action)
+{
+    if (!action->data().canConvert<BaseTool*>()) {
+        return;
+    }
+//    BaseTool *tool = action->data().value<BaseTool*>();
+    if (action->shortcut().toString().isEmpty()) {
+        action->setToolTip(action->text());
+    } else {
+        action->setToolTip(QStringLiteral("%1 (%2)").arg(action->text(), action->shortcut().toString()));
+    }
 }
 
 void ToolManager::currentToolStatusTextChanged()
@@ -863,6 +877,7 @@ BaseObjectTool::BaseObjectTool() :
     mEyedrop(false),
     mMouseDown(false),
     mRightClicked(false),
+    mRightClickDragObject(nullptr),
     mPlaceOnRelease(false),
     mMouseOverObject(false)
 {
@@ -870,15 +885,22 @@ BaseObjectTool::BaseObjectTool() :
 
 void BaseObjectTool::mousePressEvent(QGraphicsSceneMouseEvent *event)
 {
+    mRightClickDragObject = nullptr;
+
     if (event->button() == Qt::RightButton) {
         if (mMouseDown) {
             mRightClicked = true;
             return;
         }
         if (BuildingObject *object = mEditor->topmostObjectAt(event->scenePos())) {
-            undoStack()->push(new RemoveObject(mEditor->document(), floor(),
-                                               object->index()));
+            mMouseMoved = false;
+            mStartScenePos = event->scenePos();
+            mStartTilePos = mEditor->sceneToTile(mStartScenePos, mEditor->currentLevel());
+            mRightClickDragObject = object;
         }
+        updateCursorObject();
+        updateStatusText();
+        mEditor->setHighlightRoomLock(true);
         return;
     }
 
@@ -893,6 +915,9 @@ void BaseObjectTool::mousePressEvent(QGraphicsSceneMouseEvent *event)
     }
 
     mMouseDown = true;
+    mMouseMoved = false;
+    mStartScenePos = event->scenePos();
+    mStartTilePos = mEditor->sceneToTile(event->scenePos(), mEditor->currentLevel());
 
     if (!mCursorItem || !mCursorItem->isVisible() || !mCursorItem->isValidPos())
         return;
@@ -906,14 +931,32 @@ void BaseObjectTool::mousePressEvent(QGraphicsSceneMouseEvent *event)
 
 void BaseObjectTool::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
 {
+    bool mouseMoved = mMouseMoved;
+    if ((mMouseDown || mRightClickDragObject) && !mMouseMoved) {
+        const int dragDistance = (mStartScenePos - event->scenePos()).manhattanLength();
+        if (dragDistance >= QApplication::startDragDistance())
+            mMouseMoved = true;
+    }
+
     if (mMouseDown)
         return;
+
+    if (mRightClickDragObject != nullptr) {
+        if (mMouseMoved) {
+            if (!mouseMoved) {
+                startRightClickDrag(mRightClickDragObject);
+                updateStatusText();
+            }
+            rightClickDrag(mRightClickDragObject, event->scenePos());
+        }
+        return;
+    }
 
     if (mEyedrop) {
         BuildingObject *object = mEditor->topmostObjectAt(event->scenePos());
         if (object && (object->asRoof() /*|| object->asWall()*/))
             object = 0;
-        bool mouseOverObject = object != 0;
+        bool mouseOverObject = object != nullptr;
         if (mouseOverObject != mMouseOverObject)
             mMouseOverObject = mouseOverObject;
         mEditor->setMouseOverObject(object);
@@ -968,6 +1011,20 @@ void BaseObjectTool::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
             placeObject();
         mMouseDown = false;
         mRightClicked = false;
+        updateStatusText();
+    }
+    if (event->button() == Qt::RightButton) {
+        mEditor->setHighlightRoomLock(false);
+        if (mRightClickDragObject == nullptr) {
+            return;
+        }
+        BuildingObject *clickedObject = mRightClickDragObject;
+        mRightClickDragObject = nullptr;
+        if (mMouseMoved) {
+            finishRightClickDrag(clickedObject);
+        } else {
+            undoStack()->push(new RemoveObject(mEditor->document(), floor(), clickedObject->index()));
+        }
         updateStatusText();
     }
 }
@@ -1256,7 +1313,8 @@ FurnitureTool *FurnitureTool::instance()
 
 FurnitureTool::FurnitureTool() :
     BaseObjectTool(),
-    mCurrentTile(0)
+    mCurrentTile(nullptr),
+    mOriginalOrientation(FurnitureTile::FurnitureOrientation::FurnitureUnknown)
 {
     mPlaceOnRelease = true;
     updateStatusText();
@@ -1315,8 +1373,8 @@ void FurnitureTool::placeObject()
 
 void FurnitureTool::updateCursorObject()
 {
-    if (mEyedrop || !mEditor->currentFloorContains(mTilePos)) {
-        setCursorObject(0);
+    if (mEyedrop || (mRightClickDragObject != nullptr) || !mEditor->currentFloorContains(mTilePos)) {
+        setCursorObject(nullptr);
         return;
     }
 
@@ -1412,6 +1470,46 @@ void FurnitureTool::updateCursorObject()
 #endif
 }
 
+void FurnitureTool::startRightClickDrag(BuildingObject *object)
+{
+    FurnitureObject *furniture = object->asFurniture();
+    if (furniture == nullptr) {
+        return;
+    }
+    mOriginalOrientation = furniture->furnitureTile()->orient();
+}
+
+void FurnitureTool::rightClickDrag(BuildingObject *object, const QPointF &scenePos)
+{
+    FurnitureObject *furniture = object->asFurniture();
+    if (furniture == nullptr) {
+        return;
+    }
+    FurnitureTile::FurnitureOrientation orient = calcOrientFromScenePos(scenePos);
+    FurnitureTiles *tiles = furniture->furnitureTile()->owner();
+    if (FurnitureTile *tile = tiles->tile(orient)) {
+        if (!tile->isEmpty() && (tile != furniture->furnitureTile())) {
+            furniture->setFurnitureTile(tile);
+            mEditor->document()->emitObjectChanged(furniture);
+        }
+    }
+}
+
+void FurnitureTool::finishRightClickDrag(BuildingObject *object)
+{
+    FurnitureObject *furniture = object->asFurniture();
+    if (furniture == nullptr) {
+        return;
+    }
+    if (furniture->furnitureTile()->orient() == mOriginalOrientation) {
+        return;
+    }
+    FurnitureTile::FurnitureOrientation orient = furniture->furnitureTile()->orient();
+    FurnitureTiles *tiles = furniture->furnitureTile()->owner();
+    furniture->setFurnitureTile(tiles->tile(mOriginalOrientation));
+    undoStack()->push(new RotateFurniture(mEditor->document(), furniture, orient));
+}
+
 void FurnitureTool::eyedrop(BuildingObject *object)
 {
     BaseObjectTool::eyedrop(object);
@@ -1480,12 +1578,53 @@ FurnitureTool::Orient FurnitureTool::calcOrient(int x, int y)
     return OrientNone;
 }
 
+FurnitureTile::FurnitureOrientation FurnitureTool::calcOrientFromScenePos(const QPointF &scenePos)
+{
+    QPointF p1(mStartTilePos.x() + 0.5, mStartTilePos.y() + 0.5);
+    QPointF p2 = mEditor->sceneToTileF(scenePos, mEditor->currentLevel());
+    qreal angle = QLineF(p1, p2).angle(); // 0 deg == +x, 90 deg == +y
+    if (angle < 45.0 / 2) {
+        return FurnitureTile::FurnitureOrientation::FurnitureE;
+    }
+    if (angle < 90 - 45.0 / 2) {
+        return FurnitureTile::FurnitureOrientation::FurnitureNE;
+    }
+    if (angle < 135 - 45.0 / 2) {
+        return FurnitureTile::FurnitureOrientation::FurnitureN;
+    }
+    if (angle < 180 - 45.0 / 2) {
+        return FurnitureTile::FurnitureOrientation::FurnitureNW;
+    }
+    if (angle < 225 - 45.0 / 2) {
+        return FurnitureTile::FurnitureOrientation::FurnitureW;
+    }
+    if (angle < 270 - 45.0 / 2) {
+        return FurnitureTile::FurnitureOrientation::FurnitureSW;
+    }
+    if (angle < 315 - 45.0 / 2) {
+        return FurnitureTile::FurnitureOrientation::FurnitureS;
+    }
+    if (angle < 360 - 45.0 / 2) {
+        return FurnitureTile::FurnitureOrientation::FurnitureSE;
+    }
+    return FurnitureTile::FurnitureOrientation::FurnitureE;
+}
+
 void FurnitureTool::updateStatusText()
 {
-    if (mMouseDown)
+    if (mMouseDown) {
         setStatusText(tr("Drag to change orientation. Right-click to cancel."));
-    else
-        setStatusText(tr("Left-click to place furniture. Right-click to remove any object. CTRL disables auto-align. ALT = eyedrop."));
+    } else if (mRightClickDragObject != nullptr) {
+        if (!mRightClickDragObject->asFurniture()) {
+            setStatusText(mMouseMoved ? QString() : tr("Release to delete."));
+        } else if (mMouseMoved) {
+            setStatusText(tr("Drag to change orientation."));
+        } else {
+            setStatusText(tr("Drag to change orientation.  Release to delete."));
+        }
+    } else {
+        setStatusText(tr("Left-click to place.  CTRL disables auto-align.  ALT-left-click for eyedrop.  Right-click-drag to rotate.  Right-click to remove."));
+    }
 }
 
 /////
@@ -1998,7 +2137,24 @@ RoofShallowTool::RoofShallowTool()
 
 /////
 
-RoofCornerTool *RoofCornerTool::mInstance = 0;
+RoofSlope30Tool *RoofSlope30Tool::mInstance = 0;
+
+RoofSlope30Tool *RoofSlope30Tool::instance()
+{
+    if (!mInstance)
+        mInstance = new RoofSlope30Tool;
+    return mInstance;
+}
+
+RoofSlope30Tool::RoofSlope30Tool()
+    : RoofTool()
+{
+    setRoofType(RoofObject::Slope30S);
+}
+
+/////
+
+RoofCornerTool *RoofCornerTool::mInstance = nullptr;
 
 RoofCornerTool *RoofCornerTool::instance()
 {
@@ -2011,6 +2167,23 @@ RoofCornerTool::RoofCornerTool()
     : RoofTool()
 {
     setRoofType(RoofObject::CornerInnerNW);
+}
+
+/////
+
+RoofCornerSlope30Tool *RoofCornerSlope30Tool::mInstance = nullptr;
+
+RoofCornerSlope30Tool *RoofCornerSlope30Tool::instance()
+{
+    if (!mInstance)
+        mInstance = new RoofCornerSlope30Tool;
+    return mInstance;
+}
+
+RoofCornerSlope30Tool::RoofCornerSlope30Tool()
+    : RoofTool()
+{
+    setRoofType(RoofObject::CornerSlope30InnerNW);
 }
 
 /////
@@ -2037,6 +2210,182 @@ private:
     BuildingDocument *mDocument;
     QSet<BuildingObject*> mSelectedObjects;
 };
+
+/////
+
+BasementAccessTool *BasementAccessTool::mInstance = nullptr;
+
+BasementAccessTool *BasementAccessTool::instance()
+{
+    if (mInstance == nullptr)
+        mInstance = new BasementAccessTool;
+    return mInstance;
+}
+
+BasementAccessTool::BasementAccessTool() :
+    BaseTool(),
+    mMode(NoMode),
+    mMouseDown(false),
+    mMouseOverObject(false),
+    mClickedObject(false)
+{
+    updateStatusText();
+}
+
+void BasementAccessTool::mousePressEvent(QGraphicsSceneMouseEvent *event)
+{
+    if (event->button() == Qt::LeftButton) {
+        if (mMode != NoMode) // Ignore additional presses during select/move
+            return;
+        mMouseDown = true;
+        mStartScenePos = event->scenePos();
+        mClickedObject = mMouseOverObject;
+        if (mMouseOverObject)
+            startMoving();
+    }
+    if (event->button() == Qt::RightButton) {
+        if (mMode == Moving)
+            cancelMoving();
+    }
+}
+
+void BasementAccessTool::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
+{
+    QPointF pos = event->scenePos();
+
+    if (!mMouseDown) {
+        bool mouseOverObject = isMouseOverObject(pos);
+        if (mouseOverObject != mMouseOverObject) {
+            mMouseOverObject = mouseOverObject;
+            updateStatusText();
+            mEditor->basementAccessItem()->setMouseOver(mouseOverObject);
+        }
+        setHandCursor(mMouseOverObject ? HandOpen : HandNone);
+    }
+
+    if (mMode == NoMode && mMouseDown) {
+        const int dragDistance = (mStartScenePos - pos).manhattanLength();
+        if (dragDistance >= QApplication::startDragDistance()) {
+            if (mClickedObject)
+                startMoving();
+        }
+    }
+
+    switch (mMode) {
+    case Moving:
+        updateMovingItems(pos, event->modifiers());
+        break;
+    case CancelMoving:
+        break;
+    case NoMode:
+        break;
+    }
+}
+
+void BasementAccessTool::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
+{
+    if (event->button() != Qt::LeftButton)
+        return;
+
+    switch (mMode) {
+    case NoMode:
+        break;
+    case Moving:
+        mMouseDown = false;
+        finishMoving(event->scenePos());
+        break;
+    case CancelMoving:
+        mMode = NoMode;
+        break;
+    }
+
+    mMouseDown = false;
+    mClickedObject = false;
+    mouseMoveEvent(event); // update mMouseOverXXX
+    updateStatusText();
+}
+
+void BasementAccessTool::activate()
+{
+    BaseTool::activate();
+}
+
+void BasementAccessTool::deactivate()
+{
+    if (mMode == Moving)
+        cancelMoving();
+    if (mMouseOverObject) {
+        mEditor->basementAccessItem()->setMouseOver(false);
+    }
+    BaseTool::deactivate();
+}
+
+bool BasementAccessTool::isMouseOverObject(const QPointF& pos) const
+{
+    for (QGraphicsItem *item : mEditor->items(pos)) {
+        if (GraphicsBasementAccessItem *baItem = dynamic_cast<GraphicsBasementAccessItem*>(item)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void BasementAccessTool::startMoving()
+{
+    mMode = Moving;
+    mDragOffset = QPoint();
+    setHandCursor(HandClosed);
+    updateStatusText();
+}
+
+void BasementAccessTool::updateMovingItems(const QPointF &pos, Qt::KeyboardModifiers modifiers)
+{
+    Q_UNUSED(modifiers)
+
+    QPoint startTilePos = mEditor->sceneToTile(mStartScenePos, mEditor->currentLevel());
+    QPoint currentTilePos = mEditor->sceneToTile(pos, mEditor->currentLevel());
+    mDragOffset = currentTilePos - startTilePos;
+
+    mEditor->basementAccessItem()->setDragging(true);
+    mEditor->basementAccessItem()->setDragOffset(mDragOffset);
+}
+
+void BasementAccessTool::finishMoving(const QPointF &pos)
+{
+    Q_UNUSED(pos)
+
+    Q_ASSERT(mMode == Moving);
+    mMode = NoMode;
+
+    mEditor->basementAccessItem()->setDragging(false);
+    mEditor->basementAccessItem()->setDragOffset(QPoint());
+
+    if (mDragOffset.isNull()) // Move is a no-op
+        return;
+
+    QUndoStack *undoStack = this->undoStack();
+    BasementAccess ba = mEditor->building()->basementAccess();
+    ba.mX += mDragOffset.x();
+    ba.mY += mDragOffset.y();
+    undoStack->push(new SetBasementAccess(document(), ba));
+}
+
+void BasementAccessTool::cancelMoving()
+{
+    mEditor->basementAccessItem()->setDragging(false);
+    mEditor->basementAccessItem()->setDragOffset(QPoint());
+    mMode = CancelMoving;
+}
+
+void BasementAccessTool::updateStatusText()
+{
+    if (mMode == Moving) {
+        setStatusText(tr("Right-click to cancel."));
+    } else if (mMouseOverObject) {
+        setStatusText(tr("Left-click-drag to move."));
+    } else
+        setStatusText(tr(""));
+}
 
 /////
 

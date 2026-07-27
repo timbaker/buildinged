@@ -24,9 +24,11 @@
 #include "zprogress.h"
 
 #include "map.h"
+#include "maplevel.h"
 #include "mapreader.h"
 #include "mapobject.h"
 #include "objectgroup.h"
+#include "propertiesgrid.h"
 #include "tile.h"
 #include "tilelayer.h"
 #include "tileset.h"
@@ -317,9 +319,9 @@ public:
             return NULL;
 
         if (mapFilePath.endsWith(QLatin1String(".tbx")))
-            return readBuilding(&file, QFileInfo(mapFilePath).absolutePath());
+            return readBuilding(&file, QFileInfo(mapFilePath).absoluteFilePath());
 
-        return readMap(&file, QFileInfo(mapFilePath).absolutePath());
+        return readMap(&file, QFileInfo(mapFilePath).absoluteFilePath());
     }
 
     MapInfo *readMap(QIODevice *device, const QString &path)
@@ -375,7 +377,7 @@ public:
 
     MapInfo *readBuilding(QIODevice *device, const QString &path)
     {
-        Q_UNUSED(path)
+        mPath = path;
 
         mError.clear();
         mMapInfo = NULL;
@@ -481,11 +483,16 @@ public:
 
     void readUnknownElement()
     {
-        qDebug() << "Unknown element (fixme):" << xml.name();
+        qDebug() << tr("Unknown element \"%3\"\n\nLine %1, column %2 %4")
+                    .arg(xml.lineNumber())
+                    .arg(xml.columnNumber())
+                    .arg(xml.name())
+                    .arg(mPath);
         xml.skipCurrentElement();
     }
 
     QXmlStreamReader xml;
+    QString mPath;
     MapInfo *mMapInfo;
     QString mError;
 };
@@ -651,21 +658,19 @@ Map *MapManager::convertOrientation(Map *map, Tiled::Map::Orientation orient)
         QPoint offset(3, 3);
         if (orient0 == Map::Isometric && orient1 == Map::LevelIsometric) {
             foreach (Layer *layer, newMap->layers()) {
-                int level;
-                if (MapComposite::levelForLayer(layer, &level) && level > 0)
+                int level = layer->level();
+                if (level > 0)
                     layer->offset(offset * level, layer->bounds(), false, false);
             }
         }
         if (orient0 == Map::LevelIsometric && orient1 == Map::Isometric) {
-            int level, maxLevel = 0;
+            int maxLevel = 0;
             foreach (Layer *layer, map->layers())
-                if (MapComposite::levelForLayer(layer, &level))
-                    maxLevel = qMax(maxLevel, level);
+                maxLevel = qMax(maxLevel, layer->level());
             newMap->setWidth(map->width() + maxLevel * 3);
             newMap->setHeight(map->height() + maxLevel * 3);
             foreach (Layer *layer, newMap->layers()) {
-                MapComposite::levelForLayer(layer, &level);
-                layer->resize(newMap->size(), offset * (maxLevel - level));
+                layer->resize(newMap->size(), offset * (maxLevel - layer->level()));
             }
         }
         TilesetManager *tilesetManager = TilesetManager::instance();
@@ -757,8 +762,11 @@ void MapManager::mapLoadedByThread(Map *map, MapInfo *mapInfo)
 
     MapManagerDeferral deferral;
 
+    Tile *invisibleTile = TilesetManager::instance()->invisibleTile();
     Tile *missingTile = TilesetManager::instance()->missingTile();
     foreach (Tileset *tileset, map->missingTilesets()) {
+        if (tileset == invisibleTile->tileset())
+            continue;
         if (tileset == missingTile->tileset())
             continue;
         if (tileset->tileHeight() == missingTile->height() && tileset->tileWidth() == missingTile->width()) {
@@ -817,6 +825,7 @@ void MapManager::buildingLoadedByThread(Building *building, MapInfo *mapInfo)
     delete building;
 
     QSet<Tileset*> usedTilesets = map->usedTilesets();
+    usedTilesets.remove(TilesetManager::instance()->invisibleTileset());
     usedTilesets.remove(TilesetManager::instance()->missingTileset());
 
     TileMetaInfoMgr::instance()->loadTilesets({ usedTilesets.begin(), usedTilesets.end() });
@@ -985,4 +994,34 @@ void MapReaderWorker::debugJobs(const char *msg)
         out += QString::fromLatin1("    %1 priority=%2\n").arg(QFileInfo(job.mapInfo->path()).fileName()).arg(job.priority);
     }
     noise() << "MRW #" << mID << ": " << msg << "\n" << out;
+}
+
+MapInfo::MapInfo(Tiled::Map *map)
+    : mOrientation(map->orientation())
+    , mWidth(map->width())
+    , mHeight(map->height())
+    , mTileWidth(map->tileWidth())
+    , mTileHeight(map->tileHeight())
+    , mMap(map)
+    , mPlaceholder(false)
+    , mBeingEdited(false)
+#ifdef WORLDED
+    , mMapRefCount(0)
+    , mReferenceEpoch(0)
+#endif
+    , mLoading(false)
+{
+}
+
+bool MapInfo::isBasementAccess() const
+{
+    if (map() == nullptr) {
+        return false;
+    }
+    for (MapLevel *mapLevel : map()->mapLevels()) {
+        if (!mapLevel->squarePropertiesGrid()->isEmpty()) {
+            return true;
+        }
+    }
+    return false;
 }

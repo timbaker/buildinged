@@ -18,7 +18,10 @@
 #include "buildingtemplates.h"
 
 #include "building.h"
+#include "buildingfurniturefile.h"
+#include "buildingreader.h"
 #include "buildingtiles.h"
+#include "buildingtilesfile.h"
 #include "buildingpreferences.h"
 #include "furnituregroups.h"
 #include "simplefile.h"
@@ -43,6 +46,30 @@ class TemplatesFile
     Q_DECLARE_TR_FUNCTIONS(TemplatesFile)
 
 public:
+    static const int VERSION0 = 0;
+
+    // VERSION1
+    // Massive rewrite -> BuildingTileEntry
+    static const int VERSION1 = 1;
+
+    // VERSION2
+    // Renamed Room.Wall -> Room.InteriorWall
+    static const int VERSION2 = 2;
+
+    // VERSION3
+    // added window-frame shapes 1-16
+    static const int VERSION3 = 3;
+
+    // VERSION4
+    // added 30-degree roofs
+    static const int VERSION4 = 4;
+
+    // VERSION5
+    // added window-frame shapes 17-19
+    static const int VERSION5 = 5;
+
+    static const int VERSION_LATEST = VERSION5;
+
     TemplatesFile();
     ~TemplatesFile();
 
@@ -80,6 +107,7 @@ private:
     FurnitureTiles *getFurnitureTiles(const QString &s);
 
     BuildingTileEntry *readTileEntry(SimpleFileBlock &block, QString &error);
+    int buildingTilesFileVersion() const;
     FurnitureTiles *readFurnitureTiles(SimpleFileBlock &block, QString &error);
 
     void writeTileEntry(SimpleFileBlock &parentBlock, BuildingTileEntry *entry);
@@ -101,18 +129,6 @@ private:
 };
 
 } // namespace BuildingEditor
-
-
-#define VERSION0 0
-
-// VERSION1
-// Massive rewrite -> BuildingTileEntry
-#define VERSION1 1
-
-// VERSION2
-// Renamed Room.Wall -> Room.InteriorWall
-#define VERSION2 2
-#define VERSION_LATEST VERSION2
 
 TemplatesFile::TemplatesFile() :
     mVersion(0),
@@ -329,7 +345,7 @@ bool TemplatesFile::write(const QString &fileName,
     return true;
 }
 
-// this code is almost the same as BuildingTilesMgr::readTileEntry
+// this code is almost the same as BuildingTilesFile::readTileEntry
 BuildingTileEntry *TemplatesFile::readTileEntry(SimpleFileBlock &block, QString &error)
 {
     QString categoryName = block.value("category");
@@ -357,12 +373,12 @@ BuildingTileEntry *TemplatesFile::readTileEntry(SimpleFileBlock &block, QString 
             int e = category->enumFromString(kv.name);
             if (e == BuildingTileCategory::Invalid) {
                 error = tr("Unknown %1 enum %2").arg(categoryName).arg(kv.name);
+                delete entry;
                 return 0;
             }
             entry->mTiles[e] = BuildingTilesMgr::instance()->get(kv.value);
         }
-
-        if (BuildingTileEntry *match = category->findMatch(entry)) {
+        if (BuildingTileEntry *match = category->findMatchForVersion(entry, buildingTilesFileVersion())) {
             delete entry;
             entry = match;
         }
@@ -374,10 +390,24 @@ BuildingTileEntry *TemplatesFile::readTileEntry(SimpleFileBlock &block, QString 
     return 0;
 }
 
+int TemplatesFile::buildingTilesFileVersion() const
+{
+    if (mVersion == VERSION3) { // window-frame shapes 1-16
+        return BuildingTilesFile::VERSION3;
+    }
+    if (mVersion == VERSION4) { // 30-degree roofs
+        return BuildingTilesFile::VERSION3; // no new version of BuildingTilesFile!!!
+    }
+    if (mVersion == VERSION5) { // window-frame shapes 1-16
+        return BuildingTilesFile::VERSION4;
+    }
+    return BuildingTilesFile::VERSION_LATEST;
+}
+
 FurnitureTiles *TemplatesFile::readFurnitureTiles(SimpleFileBlock &block, QString &error)
 {
     FurnitureGroups *fg = FurnitureGroups::instance();
-    if (FurnitureTiles *result = fg->furnitureTilesFromSFB(block, error)) {
+    if (FurnitureTiles *result = BuildingFurnitureFile::furnitureTilesFromSFB(block, error)) {
         FurnitureTiles *match = fg->findMatch(result);
         if (match) {
             delete result;
@@ -410,7 +440,7 @@ void TemplatesFile::writeTileEntry(SimpleFileBlock &parentBlock, BuildingTileEnt
 
 void TemplatesFile::writeFurnitureTiles(SimpleFileBlock &block, FurnitureTiles *ftiles)
 {
-    block.blocks += FurnitureGroups::instance()->furnitureTilesToSFB(ftiles);
+    block.blocks += BuildingFurnitureFile::furnitureTilesToSFB(ftiles);
 }
 
 QString TemplatesFile::nameForEntry(BuildingTileEntry *entry)
@@ -619,7 +649,6 @@ bool BuildingTemplates::mergeTxt()
         mError = userFile.errorString();
         return false;
     }
-    Q_ASSERT(userFile.version() == VERSION_LATEST);
 
     QString sourcePath = Tiled::Internal::Preferences::instance()->appConfigPath(txtName());
 
@@ -628,7 +657,7 @@ bool BuildingTemplates::mergeTxt()
         mError = sourceFile.errorString();
         return false;
     }
-    Q_ASSERT(sourceFile.version() == VERSION_LATEST);
+    Q_ASSERT(sourceFile.version() == TemplatesFile::VERSION_LATEST);
 
     int userSourceRevision = userFile.value("source_revision").toInt();
     int sourceRevision = sourceFile.value("revision").toInt();
@@ -728,6 +757,16 @@ int BuildingTemplate::categoryEnum(int n)
     return 0;
 }
 
+void BuildingTemplate::insertRoom(int index, Room *room)
+{
+    RoomList.insert(index, room);
+}
+
+Room *BuildingTemplate::removeRoom(int index)
+{
+    return RoomList.takeAt(index);
+}
+
 QString BuildingTemplate::enumToString(int n)
 {
     initNames();
@@ -798,7 +837,8 @@ QStringList Room::enumLabels()
             << BuildingTilesMgr::instance()->catIWallTrim()->label()
             << BuildingTilesMgr::instance()->catFloors()->label()
             << BuildingTilesMgr::instance()->catGrimeFloor()->label()
-            << BuildingTilesMgr::instance()->catGrimeWall()->label();
+            << BuildingTilesMgr::instance()->catGrimeWall()->label()
+            << BuildingTilesMgr::instance()->catCeiling()->label();
 }
 
 QString Room::enumToString(int n)
@@ -815,6 +855,7 @@ int Room::categoryEnum(int n)
     case Floor: return BuildingTilesMgr::Floors;
     case GrimeFloor: return BuildingTilesMgr::GrimeFloor;
     case GrimeWall: return BuildingTilesMgr::GrimeWall;
+    case Ceiling: return BuildingTilesMgr::Ceiling;
     default:
         qFatal("Invalid enum passed to Room::categoryEnum");
         break;
@@ -832,5 +873,6 @@ void Room::initNames()
     mEnumNames += QLatin1String("Floor");
     mEnumNames += QLatin1String("GrimeFloor");
     mEnumNames += QLatin1String("GrimeWall");
+    mEnumNames += QLatin1String("Ceiling");
     Q_ASSERT(mEnumNames.size() == TileCount);
 }

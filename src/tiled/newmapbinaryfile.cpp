@@ -5,27 +5,31 @@
 #include "tilesetmanager.h"
 #include "tilemetainfomgr.h"
 
-#include "gidmapper.h"
 #include "mapobject.h"
 #include "objectgroup.h"
 #include "tile.h"
 #include "tileset.h"
+
+#include "BuildingEditor/buildingfloor.h"
 
 #include <qmath.h>
 
 using namespace Tiled;
 using namespace Tiled::Internal;
 
-NewMapBinaryFile::NewMapBinaryFile()
+NewMapBinaryFile::NewMapBinaryFile(int squaresPerChunk)
+    : mSquaresPerChunk(squaresPerChunk)
 {
 
 }
 
-bool NewMapBinaryFile::write(MapComposite *mapComposite, const QString &filePath)
+bool NewMapBinaryFile::write(MapComposite *mapComposite, const QVector<Tiled::PropertiesGrid*>& propertiesGrids, const QString &filePath)
 {
     MapInfo* mapInfo = mapComposite->mapInfo();
 
     mStats = LotFile::Stats();
+
+    mapComposite->synch();
 
     MaxLevel = mapComposite->maxLevel();
 
@@ -58,40 +62,46 @@ bool NewMapBinaryFile::write(MapComposite *mapComposite, const QString &filePath
     int mapWidth = mapInfo->width();
     int mapHeight = mapInfo->height();
 
-    int NUM_CHUNKS_X = (mapInfo->width() + CHUNK_WIDTH - 1) / CHUNK_WIDTH;
-    int NUM_CHUNKS_Y = (mapInfo->height() + CHUNK_HEIGHT - 1) / CHUNK_HEIGHT;
+    int NUM_CHUNKS_X = std::ceil((mapInfo->width() - 0.5f) / float(mSquaresPerChunk));
+    int NUM_CHUNKS_Y = std::ceil((mapInfo->height() - 0.5f) / float(mSquaresPerChunk));
 
     // Resize the grid and cleanup data from the previous cell.
-    mGridData.resize(NUM_CHUNKS_X * CHUNK_WIDTH);
-    for (int x = 0; x < NUM_CHUNKS_X * CHUNK_WIDTH; x++) {
-        mGridData[x].resize(NUM_CHUNKS_Y * CHUNK_HEIGHT);
-        for (int y = 0; y < NUM_CHUNKS_Y * CHUNK_HEIGHT; y++) {
+    mGridData.resize(NUM_CHUNKS_X * mSquaresPerChunk);
+    for (int x = 0; x < NUM_CHUNKS_X * mSquaresPerChunk; x++) {
+        mGridData[x].resize(NUM_CHUNKS_Y * mSquaresPerChunk);
+        for (int y = 0; y < NUM_CHUNKS_Y * mSquaresPerChunk; y++) {
             mGridData[x][y].fill(LotFile::Square(), MaxLevel);
         }
     }
 
     Tile *missingTile = Tiled::Internal::TilesetManager::instance()->missingTile();
     QVector<const Tiled::Cell *> cells(40);
+    OrderedCellsTemporaries vars;
     for (CompositeLayerGroup *lg : mapComposite->layerGroups()) {
         lg->prepareDrawing2();
         int d = (mapInfo->orientation() == Map::Isometric) ? -3 : 0;
         d *= lg->level();
+        Tiled::PropertiesGrid *propertiesGrid = propertiesGrids.isEmpty() ? nullptr : propertiesGrids[lg->level()];
         for (int y = d; y < mapHeight; y++) {
             for (int x = d; x < mapWidth; x++) {
+                int lx = x, ly = y;
+                if (mapInfo->orientation() == Map::Isometric) {
+                    lx = x + lg->level() * 3;
+                    ly = y + lg->level() * 3;
+                }
+                if (lx >= mapWidth) continue;
+                if (ly >= mapHeight) continue;
+                LotFile::Square& square = mGridData[lx][ly][lg->level()];
                 cells.resize(0);
-                lg->orderedCellsAt2(QPoint(x, y), cells);
-                for (const Tiled::Cell *cell : cells) {
+                lg->orderedCellsAt2(QPoint(x, y), vars, cells);
+                for (const Tiled::Cell *cell : qAsConst(cells)) {
                     if (cell->tile == missingTile) continue;
-                    int lx = x, ly = y;
-                    if (mapInfo->orientation() == Map::Isometric) {
-                        lx = x + lg->level() * 3;
-                        ly = y + lg->level() * 3;
-                    }
-                    if (lx >= mapWidth) continue;
-                    if (ly >= mapHeight) continue;
                     LotFile::Entry *e = new LotFile::Entry(cellToGid(cell));
-                    mGridData[lx][ly][lg->level()].Entries.append(e);
+                    square.Entries.append(e);
                     mTileMap[e->gid]->used = true;
+                }
+                if ((propertiesGrid != nullptr) && propertiesGrid->hasPropertiesAt(lx, ly)) {
+                    square.properties = propertiesGrid->at(lx, ly);
                 }
             }
         }
@@ -108,8 +118,9 @@ bool NewMapBinaryFile::write(MapComposite *mapComposite, const QString &filePath
 
     generateBuildingObjects(mapWidth, mapHeight);
 
-    if (!generateHeaderAux(out, mapComposite))
+    if (!generateHeaderAux(out, mapComposite)) {
         return false;
+    }
 
     qint64 chunkTablePosition = file.pos();
 
@@ -123,8 +134,9 @@ bool NewMapBinaryFile::write(MapComposite *mapComposite, const QString &filePath
     for (int y = 0; y < NUM_CHUNKS_Y; y++) {
         for (int x = 0; x < NUM_CHUNKS_X; x++) {
             PositionMap += file.pos();
-            if (!generateChunk(out, mapComposite, x, y))
+            if (!generateChunk(out, mapComposite, x, y)) {
                 return false;
+            }
         }
     }
 
@@ -155,13 +167,11 @@ bool NewMapBinaryFile::generateHeader(MapComposite *mapComposite)
     qDeleteAll(mRoomRects);
     qDeleteAll(roomList);
     qDeleteAll(buildingList);
-    qDeleteAll(ZoneList);
 
     mRoomRects.clear();
     mRoomRectByLevel.clear();
     roomList.clear();
     buildingList.clear();
-    ZoneList.clear();
 
     // Create the set of all tilesets used by the map and its sub-maps.
     QList<Tileset*> tilesets;
@@ -182,8 +192,9 @@ bool NewMapBinaryFile::generateHeader(MapComposite *mapComposite)
     mTileMap[0] = new LotFile::Tile;
 
     mTilesetToFirstGid.clear();
+    mTilesetNameToFirstGid.clear();
     uint firstGid = 1;
-    for (Tileset *tileset : tilesets) {
+    for (Tileset *tileset : qAsConst(tilesets)) {
         if (!handleTileset(tileset, firstGid)) {
             return false;
         }
@@ -193,10 +204,21 @@ bool NewMapBinaryFile::generateHeader(MapComposite *mapComposite)
         return false;
     }
 
+    MapInfo* mapInfo = mapComposite->mapInfo();
+    int NUM_CHUNKS_X = std::ceil((mapInfo->width() - 0.5f) / float(mSquaresPerChunk));
+    int NUM_CHUNKS_Y = std::ceil((mapInfo->height() - 0.5f) / float(mSquaresPerChunk));
+
+    LotFile::RectLookup<LotFile::RoomRect> mRoomRectLookup;
+
     // Merge adjacent RoomRects on the same level into rooms.
     // Only RoomRects with matching names and with # in the name are merged.
     for (int level : mRoomRectByLevel.keys()) {
         QList<LotFile::RoomRect*> rrList = mRoomRectByLevel[level];
+        // Use spatial partitioning to speed up the code below.
+        mRoomRectLookup.clear(NUM_CHUNKS_X, NUM_CHUNKS_Y, mSquaresPerChunk);
+        for (LotFile::RoomRect *rr : rrList) {
+            mRoomRectLookup.add(rr, rr->bounds());
+        }
         for (LotFile::RoomRect *rr : rrList) {
             if (rr->room == nullptr) {
                 rr->room = new LotFile::Room(rr->nameWithoutSuffix(),
@@ -207,7 +229,9 @@ bool NewMapBinaryFile::generateHeader(MapComposite *mapComposite)
             if (!rr->name.contains(QLatin1Char('#'))) {
                 continue;
             }
-            for (LotFile::RoomRect *comp : rrList) {
+            QList<LotFile::RoomRect*> rrList2;
+            mRoomRectLookup.overlapping(QRect(rr->bounds().adjusted(-1, -1, 1, 1)), rrList2);
+            for (LotFile::RoomRect *comp : qAsConst(rrList2)) {
                 if (comp == rr)
                     continue;
                 if (comp->room == rr->room)
@@ -215,7 +239,7 @@ bool NewMapBinaryFile::generateHeader(MapComposite *mapComposite)
                 if (rr->inSameRoom(comp)) {
                     if (comp->room != nullptr) {
                         LotFile::Room *room = comp->room;
-                        for (LotFile::RoomRect *rr2 : room->rects) {
+                        for (LotFile::RoomRect *rr2 : qAsConst(room->rects)) {
                             Q_ASSERT(rr2->room == room);
                             Q_ASSERT(!rr->room->rects.contains(rr2));
                             rr2->room = rr->room;
@@ -238,16 +262,25 @@ bool NewMapBinaryFile::generateHeader(MapComposite *mapComposite)
     mStats.numRoomRects += mRoomRects.size();
     mStats.numRooms += roomList.size();
 
+    LotFile::RectLookup<LotFile::Room> mRoomLookup;
+    mRoomLookup.clear(NUM_CHUNKS_X, NUM_CHUNKS_Y, mSquaresPerChunk);
+     for (LotFile::Room *r : qAsConst(roomList)) {
+         r->mBounds = r->calculateBounds();
+         mRoomLookup.add(r, r->bounds());
+     }
+
     // Merge adjacent rooms into buildings.
     // Rooms on different levels that overlap in x/y are merged into the
     // same buliding.
-    for (LotFile::Room *r : roomList) {
+    for (LotFile::Room *r : qAsConst(roomList)) {
         if (r->building == nullptr) {
             r->building = new LotFile::Building();
             buildingList += r->building;
             r->building->RoomList += r;
         }
-        for (LotFile::Room *comp : roomList) {
+        QList<LotFile::Room*> roomList2;
+        mRoomLookup.overlapping(r->bounds().adjusted(-1, -1, 1, 1), roomList2);
+        for (LotFile::Room *comp : qAsConst(roomList2)) {
             if (comp == r)
                 continue;
             if (r->building == comp->building)
@@ -255,7 +288,7 @@ bool NewMapBinaryFile::generateHeader(MapComposite *mapComposite)
             if (r->inSameBuilding(comp)) {
                 if (comp->building != nullptr) {
                     LotFile::Building *b = comp->building;
-                    for (LotFile::Room *r2 : b->RoomList) {
+                    for (LotFile::Room *r2 : qAsConst(b->RoomList)) {
                         Q_ASSERT(r2->building == b);
                         Q_ASSERT(!r->building->RoomList.contains(r2));
                         r2->building = r->building;
@@ -280,54 +313,40 @@ bool NewMapBinaryFile::generateHeaderAux(QDataStream &out, MapComposite *mapComp
 {
     Q_UNUSED(mapComposite)
 
-//    QString fileName = tr("%1_%2.lotheader")
-//            .arg(lotSettings.worldOrigin.x() + cell->x())
-//            .arg(lotSettings.worldOrigin.y() + cell->y());
-
-//    QString lotsDirectory = mWorldDoc->world()->getGenerateLotsSettings().exportDir;
-//    QFile file(lotsDirectory + QLatin1Char('/') + fileName);
-//    if (!file.open(QIODevice::WriteOnly /*| QIODevice::Text*/)) {
-//        mError = tr("Could not open file for writing.");
-//        return false;
-//    }
-
     out << quint8('P') << quint8('Z') << quint8('B') << quint8('Y');
     Version = 0;
     out << qint32(Version);
 
     int tilecount = 0;
-    for (LotFile::Tile *tile : mTileMap) {
+    for (LotFile::Tile *tile : qAsConst(mTileMap)) {
         if (tile->used) {
             tile->id = tilecount;
             tilecount++;
-//            if (tile->name.startsWith(QLatin1String("jumbo_tree_01"))) {
-//                int nnn = 0;
-//            }
         }
     }
     out << qint32(tilecount);
 
-    for (LotFile::Tile *tile : mTileMap) {
+    for (LotFile::Tile *tile : qAsConst(mTileMap)) {
         if (tile->used) {
             SaveString(out, tile->name);
         }
     }
 
     MapInfo* mapInfo = mapComposite->mapInfo();
-    int NUM_CHUNKS_X = (mapInfo->width() + CHUNK_WIDTH - 1) / CHUNK_WIDTH;
-    int NUM_CHUNKS_Y = (mapInfo->height() + CHUNK_WIDTH - 1) / CHUNK_WIDTH;
+    int NUM_CHUNKS_X = std::ceil((mapInfo->width() - 0.5f) / float(mSquaresPerChunk));
+    int NUM_CHUNKS_Y = std::ceil((mapInfo->height() - 0.5f) / float(mSquaresPerChunk));
 
     out << qint32(NUM_CHUNKS_X);
     out << qint32(NUM_CHUNKS_Y);
     out << qint32(MaxLevel);
 
     out << qint32(roomList.count());
-    for (LotFile::Room *room : roomList) {
+    for (LotFile::Room *room : qAsConst(roomList)) {
         SaveString(out, room->name);
         out << qint32(room->floor);
 
         out << qint32(room->rects.size());
-        for (LotFile::RoomRect *rr : room->rects) {
+        for (LotFile::RoomRect *rr : qAsConst(room->rects)) {
             out << qint32(rr->x);
             out << qint32(rr->y);
             out << qint32(rr->w);
@@ -335,7 +354,7 @@ bool NewMapBinaryFile::generateHeaderAux(QDataStream &out, MapComposite *mapComp
         }
 
         out << qint32(room->objects.size());
-        for (const LotFile::RoomObject &object : room->objects) {
+        for (const LotFile::RoomObject &object : qAsConst(room->objects)) {
             out << qint32(object.metaEnum);
             out << qint32(object.x);
             out << qint32(object.y);
@@ -343,21 +362,12 @@ bool NewMapBinaryFile::generateHeaderAux(QDataStream &out, MapComposite *mapComp
     }
 
     out << qint32(buildingList.count());
-    for (LotFile::Building *building : buildingList) {
+    for (LotFile::Building *building : qAsConst(buildingList)) {
         out << qint32(building->RoomList.count());
-        for (LotFile::Room *room : building->RoomList) {
+        for (LotFile::Room *room : qAsConst(building->RoomList)) {
             out << qint32(room->ID);
         }
     }
-/*
-    for (int x = 0; x < 30; x++) {
-        for (int y = 0; y < 30; y++) {
-            QRgb pixel = ZombieSpawnMap.pixel(cell->x() * 30 + x,
-                                              cell->y() * 30 + y);
-            out << quint8(qRed(pixel));
-        }
-    }
-*/
 
     return true;
 }
@@ -366,24 +376,53 @@ bool NewMapBinaryFile::generateChunk(QDataStream &out, MapComposite *mapComposit
 {
     Q_UNUSED(mapComposite)
 
+    // Write square attributes.
+    const QStringList& SQUARE_PROPERTIES = BuildingEditor::getSquarePropertyNames();
     int notdonecount = 0;
     for (int z = 0; z < MaxLevel; z++)  {
-        for (int x = 0; x < CHUNK_WIDTH; x++) {
-            for (int y = 0; y < CHUNK_HEIGHT; y++) {
-                int gx = cx * CHUNK_WIDTH + x;
-                int gy = cy * CHUNK_HEIGHT + y;
+        for (int x = 0; x < mSquaresPerChunk; x++) {
+            for (int y = 0; y < mSquaresPerChunk; y++) {
+                int gx = cx * mSquaresPerChunk + x;
+                int gy = cy * mSquaresPerChunk + y;
+                const Tiled::Properties &properties = mGridData[gx][gy][z].properties;
+                if (properties.isEmpty()) {
+                    notdonecount++;
+                    continue;
+                }
+                if (notdonecount > 0) {
+                    out << qint32(-1);
+                    out << qint32(notdonecount);
+                    notdonecount = 0;
+                }
+                quint32 bits = toBits(properties, SQUARE_PROPERTIES);
+                out << qint32(2); // any number > 1
+                out << quint32(bits);
+            }
+        }
+    }
+    if (notdonecount > 0) {
+        out << qint32(-1);
+        out << qint32(notdonecount);
+    }
+
+    // Write tile-name indices for each square.
+    notdonecount = 0;
+    for (int z = 0; z < MaxLevel; z++)  {
+        for (int x = 0; x < mSquaresPerChunk; x++) {
+            for (int y = 0; y < mSquaresPerChunk; y++) {
+                int gx = cx * mSquaresPerChunk + x;
+                int gy = cy * mSquaresPerChunk + y;
                 const QList<LotFile::Entry*> &entries = mGridData[gx][gy][z].Entries;
                 if (entries.count() == 0) {
                     notdonecount++;
-                } else {
-                    if (notdonecount > 0) {
-                        out << qint32(-1);
-                        out << qint32(notdonecount);
-                    }
-                    notdonecount = 0;
-                    out << qint32(entries.count() + 1);
-                    out << qint32(getRoomID(gx, gy, z));
+                    continue;
                 }
+                if (notdonecount > 0) {
+                    out << qint32(-1);
+                    out << qint32(notdonecount);
+                    notdonecount = 0;
+                }
+                out << qint32(entries.count() + 1);
                 for (LotFile::Entry *entry : entries) {
                     Q_ASSERT(mTileMap[entry->gid]);
                     Q_ASSERT(mTileMap[entry->gid]->id != -1);
@@ -402,8 +441,8 @@ bool NewMapBinaryFile::generateChunk(QDataStream &out, MapComposite *mapComposit
 
 void NewMapBinaryFile::generateBuildingObjects(int mapWidth, int mapHeight)
 {
-    for (LotFile::Room *room : roomList) {
-        for (LotFile::RoomRect *rr : room->rects) {
+    for (LotFile::Room *room : qAsConst(roomList)) {
+        for (LotFile::RoomRect *rr : qAsConst(room->rects)) {
             generateBuildingObjects(mapWidth, mapHeight, room, rr);
         }
     }
@@ -420,7 +459,7 @@ void NewMapBinaryFile::generateBuildingObjects(int mapWidth, int mapHeight,
 
             /* Examine every tile inside the room.  If the tile's metaEnum >= 0
                then create a new RoomObject for it. */
-            for (LotFile::Entry *entry : mGridData[x][y][room->floor].Entries) {
+            for (LotFile::Entry *entry : qAsConst(mGridData[x][y][room->floor].Entries)) {
                 int metaEnum = mTileMap[entry->gid]->metaEnum;
                 if (metaEnum >= 0) {
                     LotFile::RoomObject object;
@@ -438,7 +477,7 @@ void NewMapBinaryFile::generateBuildingObjects(int mapWidth, int mapHeight,
     int y = rr->y + rr->h;
     if (y < mapHeight) {
         for (int x = rr->x; x < rr->x + rr->w; x++) {
-            for (LotFile::Entry *entry : mGridData[x][y][room->floor].Entries) {
+            for (LotFile::Entry *entry : qAsConst(mGridData[x][y][room->floor].Entries)) {
                 int metaEnum = mTileMap[entry->gid]->metaEnum;
                 if (metaEnum >= 0 && TileMetaInfoMgr::instance()->isEnumNorth(metaEnum)) {
                     LotFile::RoomObject object;
@@ -456,7 +495,7 @@ void NewMapBinaryFile::generateBuildingObjects(int mapWidth, int mapHeight,
     int x = rr->x + rr->w;
     if (x < mapWidth) {
         for (int y = rr->y; y < rr->y + rr->h; y++) {
-            for (LotFile::Entry *entry : mGridData[x][y][room->floor].Entries) {
+            for (LotFile::Entry *entry : qAsConst(mGridData[x][y][room->floor].Entries)) {
                 int metaEnum = mTileMap[entry->gid]->metaEnum;
                 if (metaEnum >= 0 && TileMetaInfoMgr::instance()->isEnumWest(metaEnum)) {
                     LotFile::RoomObject object;
@@ -492,15 +531,10 @@ bool NewMapBinaryFile::handleTileset(const Tiled::Tileset *tileset, uint &firstG
 
     // TODO: Verify that two tilesets sharing the same name are identical
     // between maps.
-    QMap<const Tileset*,uint>::const_iterator i = mTilesetToFirstGid.begin();
-    QMap<const Tileset*,uint>::const_iterator i_end = mTilesetToFirstGid.end();
-    while (i != i_end) {
-        QString name2 = nameOfTileset(i.key());
-        if (name == name2) {
-            mTilesetToFirstGid.insert(tileset, i.value());
-            return true;
-        }
-        ++i;
+    auto it = mTilesetNameToFirstGid.find(name);
+    if (it != mTilesetNameToFirstGid.end()) {
+        mTilesetToFirstGid.insert(tileset, it.value());
+        return true;
     }
 
     for (int i = 0; i < tileset->tileCount(); ++i) {
@@ -512,6 +546,7 @@ bool NewMapBinaryFile::handleTileset(const Tiled::Tileset *tileset, uint &firstG
     }
 
     mTilesetToFirstGid.insert(tileset, firstGid);
+    mTilesetNameToFirstGid.insert(name, firstGid);
     firstGid += uint(tileset->tileCount());
 
     return true;
@@ -525,16 +560,12 @@ int NewMapBinaryFile::getRoomID(int x, int y, int z)
 uint NewMapBinaryFile::cellToGid(const Cell *cell)
 {
     Tileset *tileset = cell->tile->tileset();
-
-    QMap<const Tileset*,uint>::const_iterator i = mTilesetToFirstGid.begin();
-    QMap<const Tileset*,uint>::const_iterator i_end = mTilesetToFirstGid.end();
-    while (i != i_end && i.key() != tileset) {
-        ++i;
-    }
-    if (i == i_end) {// tileset not found
+    auto it = mTilesetToFirstGid.find(tileset);
+    if (it == mTilesetToFirstGid.end()) {
+        // tileset not found
         return 0;
     }
-    return i.value() + uint(cell->tile->id());
+    return it.value() + uint(cell->tile->id());
 }
 
 bool NewMapBinaryFile::processObjectGroups(MapComposite *mapComposite)
@@ -559,9 +590,7 @@ bool NewMapBinaryFile::processObjectGroups(MapComposite *mapComposite)
 
 bool NewMapBinaryFile::processObjectGroup(ObjectGroup *objectGroup, int levelOffset, const QPoint &offset)
 {
-    int level;
-    if (!MapComposite::levelForLayer(objectGroup, &level))
-        return true;
+    int level = objectGroup->level();
     level += levelOffset;
 
     for (const MapObject *mapObject : objectGroup->objects()) {
@@ -604,11 +633,6 @@ bool NewMapBinaryFile::processObjectGroup(ObjectGroup *objectGroup, int levelOff
                                                           w, h);
             mRoomRects += rr;
             mRoomRectByLevel[level] += rr;
-        } else {
-            LotFile::Zone *z = new LotFile::Zone(name,
-                                                 mapObject->type(),
-                                                 x, y, level, w, h);
-            ZoneList.append(z);
         }
     }
     return true;
@@ -621,4 +645,16 @@ void NewMapBinaryFile::SaveString(QDataStream& out, const QString& str)
         out << quint8(str[i].toLatin1());
     }
     out << quint8('\n');
+}
+
+int NewMapBinaryFile::toBits(const Tiled::Properties& properties, const QStringList& attributeNames) const
+{
+    int bits = 0;
+    for (const QString& key : properties.keys()) {
+        int index = attributeNames.indexOf(key);
+        if (index != -1) {
+            bits |= 1 << index;
+        }
+    }
+    return bits;
 }

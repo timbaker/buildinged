@@ -18,12 +18,16 @@
 #ifndef BUILDINGEDITORWINDOW_H
 #define BUILDINGEDITORWINDOW_H
 
+#include "BuildingEditor/exportbasementsdialog.h"
 #include <QItemSelection>
 #include <QMainWindow>
 #include <QMap>
 #include <QSettings>
 #include <QTimer>
 #include <QVector>
+
+class ActionManager;
+class KeyboardShortcutWindow;
 
 class QComboBox;
 class QLabel;
@@ -37,9 +41,11 @@ class BuildingEditorWindow;
 }
 
 namespace Tiled {
+class Map;
 class Tile;
 class Tileset;
 namespace Internal {
+class TileDefFile;
 class Zoomable;
 }
 }
@@ -52,6 +58,7 @@ class FancyTabWidget;
 
 namespace BuildingEditor {
 
+class AttributeEditMode;
 class BaseTool;
 class Building;
 class BuildingBaseScene;
@@ -67,6 +74,7 @@ class BuildingOrthoScene;
 class BuildingOrthoView;
 class CategoryDock;
 class Door;
+class ExportBasementsDialog;
 class FurnitureGroup;
 class FurnitureTile;
 class IMode;
@@ -94,21 +102,24 @@ public:
     enum EditMode {
         OrthoObjectMode,
         IsoObjectMode,
-        TileMode
+        TileMode,
+        AttributeMode,
     };
     void setEditMode(EditMode mode);
     EditMode editMode() const { return mEditMode; }
-    bool isOrthoObject() { return mEditMode == OrthoObjectMode; }
-    bool isIsoObject() { return mEditMode == IsoObjectMode; }
-    bool isObject() { return mEditMode != TileMode; }
-    bool isTile() { return mEditMode == TileMode; }
-    bool isOrtho() { return mEditMode == OrthoObjectMode; }
-    bool isIso() { return mEditMode != OrthoObjectMode; }
+    bool isOrthoObject() { return mEditMode == EditMode::OrthoObjectMode; }
+    bool isIsoObject() { return mEditMode == EditMode::IsoObjectMode; }
+    bool isObject() { return mEditMode != EditMode::TileMode && mEditMode != EditMode::AttributeMode; }
+    bool isTile() { return mEditMode == EditMode::TileMode; }
+    bool isOrtho() { return mEditMode == EditMode::OrthoObjectMode; }
+    bool isIso() { return mEditMode != EditMode::OrthoObjectMode; }
+    bool isAttribute() { return mEditMode == EditMode::AttributeMode; }
 
     void toOrthoObject();
     void toIsoObject();
     void toObject();
     void toTile();
+    void toAttribute();
 
     void rememberTool();
     void restoreTool();
@@ -121,6 +132,11 @@ public:
     { mMissingTilesetsReported = reported; }
 
     void focusOn(int x, int y, int z, int objectIndex);
+
+    BuildingIsoView *isoView() const { return mIsoView; }
+    BuildingIsoView *tileView() const { return mTileView; }
+
+    void setInitialPosition();
 
 public slots:
     void autoSaveCheck();
@@ -136,11 +152,16 @@ private:
     EditMode mPrevObjectMode;
     BaseTool *mPrevObjectTool;
     BaseTool *mPrevTileTool;
+    BaseTool *mPrevAttributeTool;
     bool mMissingTilesetsReported;
+    bool mInitialPositionSet = false;
 
     // Hack to keep iso/tile view position and scale synched.
+    QPointF mIsoViewsCenter;
+    qreal mIsoViewsZoom = qreal(1.0);
     BuildingIsoView *mIsoView;
     BuildingIsoView *mTileView;
+    BuildingIsoView *mAttributeView;
 
     QTimer mAutoSaveTimer;
     QString mAutoSaveFileName;
@@ -183,6 +204,15 @@ public:
 
     void focusOn(const QString &file, int x, int y, int z, int objectIndex);
 
+    QUndoGroup *undoGroup() const
+    { return mUndoGroup; }
+
+    QAction *undoAction() const
+    { return mUndoAction; }
+
+    QAction *redoAction() const
+    { return mRedoAction; }
+
 #ifdef BUILDINGED_SA
     void readSettings();
 #endif
@@ -219,6 +249,12 @@ private:
 
     void cropBuilding(const QRect &bounds);
 
+    void exportNewBinaryFile(ExportBasementsDialog *dialog, const QString& tbxFilePath, QSet<QString> &northStairTiles, QSet<QString> &westStairTiles, QString &luaCode);
+    void getTopStaircaseTiles(QSet<QString>& northStairTiles, QSet<QString> &westStairTiles);
+    bool getBasementStaircase(Tiled::Map* map, QSet<QString>& northStairTiles, QSet<QString>& westStairTiles, int &stairx, int &stairy, QString& stairDir, bool isBasementAccess);
+
+    void initActionManager();
+
     typedef Tiled::Tileset Tileset; // Hack for signals/slots
 
 signals:
@@ -252,6 +288,7 @@ private slots:
     void editCopy();
     void editPaste();
     void editDelete();
+    void editDeleteInAllLayers();
 
     void selectAll();
     void selectNone();
@@ -275,7 +312,13 @@ private slots:
     void rotateRight();
     void rotateLeft();
 
+    void setBasementAccessNone();
+    void setBasementAccessNorth();
+    void setBasementAccessWest();
+
     void templatesDialog();
+
+    void keyboardShortcuts();
 
 public slots:
 #ifdef BUILDINGED_SA
@@ -288,6 +331,7 @@ public slots:
 
 private slots:
     void showObjectsChanged(bool show);
+    void highlightUnlitRoomsChanged(bool show);
 
     void tilesetAdded(Tiled::Tileset *tileset);
     void tilesetAboutToBeRemoved(Tiled::Tileset *tileset);
@@ -311,7 +355,11 @@ private:
     Ui::BuildingEditorWindow *ui;
     BuildingDocument *mCurrentDocument;
     EditorWindowPerDocumentStuff *mCurrentDocumentStuff;
+    ActionManager *mActionManager = nullptr;
+    KeyboardShortcutWindow *mKeyboardShortcutWindow = nullptr;
     QUndoGroup *mUndoGroup;
+    QAction *mUndoAction;
+    QAction *mRedoAction;
     QSettings &mSettings;
     QString mError;
     bool mSynching;
@@ -320,6 +368,7 @@ private:
     OrthoObjectEditMode *mOrthoObjectEditMode;
     IsoObjectEditMode *mIsoObjectEditMode;
     TileEditMode *mTileEditMode;
+    AttributeEditMode *mAttributeEditMode;
 
     QMap<BuildingDocument*,EditorWindowPerDocumentStuff*> mDocumentStuff;
     friend class EditorWindowPerDocumentStuff;

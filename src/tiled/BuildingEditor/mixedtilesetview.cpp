@@ -51,7 +51,7 @@ public:
     { }
 
     void paint(QPainter *painter, const QStyleOptionViewItem &option,
-               const QModelIndex &index) const;
+               const QModelIndex &index) const override;
 
     QSize sizeHint(const QStyleOptionViewItem &option,
                    const QModelIndex &index) const;
@@ -83,17 +83,16 @@ void TileDelegate::paint(QPainter *painter,
     QString tilesetName = m->headerAt(index);
     if (!tilesetName.isEmpty()) {
         if (index.row() > 0) {
+            QPen oldPen = painter->pen();
             painter->setPen(Qt::darkGray);
             painter->drawLine(option.rect.topLeft(), option.rect.topRight());
-            painter->setPen(Qt::black);
+            painter->setPen(oldPen);
         }
         // One slice of the tileset name is drawn in each column.
-        if (index.column() == 0)
-            painter->drawText(option.rect.adjusted(2, 2, 0, 0), Qt::AlignLeft,
-                              tilesetName);
-        else {
-            QRect r = option.rect.adjusted(-index.column() * option.rect.width(),
-                                           0, 0, 0);
+        if (index.column() == 0) {
+            painter->drawText(option.rect.adjusted(2, 2, 0, 0), Qt::AlignLeft, tilesetName);
+        } else {
+            QRect r = option.rect.adjusted(-index.column() * option.rect.width(), 0, 0, 0);
             painter->save();
             painter->setClipRect(option.rect);
             painter->drawText(r.adjusted(2, 2, 0, 0), Qt::AlignLeft, tilesetName);
@@ -152,7 +151,8 @@ void TileDelegate::paint(QPainter *painter,
     // Draw the tile image
 //    const QVariant display = index.model()->data(index, Qt::DisplayRole);
 //    const QPixmap tileImage = display.value<QPixmap>();
-    const int tileWidth = tile->tileset()->tileWidth() * mView->zoomable()->scale();
+    const qreal tileWidth = tile->tileset()->tileWidth() * mView->zoomable()->scale();
+    const qreal tileHeight = tile->tileset()->tileHeight() * mView->zoomable()->scale();
 
     if (mView->zoomable()->smoothTransform())
         painter->setRenderHint(QPainter::SmoothPixmapTransform);
@@ -161,9 +161,18 @@ void TileDelegate::paint(QPainter *painter,
     const int labelHeight = m->showLabels() ? fm.lineSpacing() : 0;
     const int dw = option.rect.width() - tileWidth;
     const QMargins margins = tile->drawMargins(mView->zoomable()->scale());
-    QRect imageRect = option.rect.adjusted(dw/2 + margins.left(), extra + margins.top(),
-                                           -(dw - dw/2) - margins.right(), -extra - labelHeight - margins.bottom());
+    QRectF imageRect(option.rect.x() + dw / 2 + margins.left(),
+                     option.rect.y() + extra + margins.top(),
+                     tileWidth - margins.left() - margins.right(), tileHeight - margins.top() - margins.bottom());
     painter->drawImage(imageRect, tile->image());
+
+    if (Tile *overlay = m->overlayTile(index)) {
+        const QMargins margins = overlay->drawMargins(mView->zoomable()->scale());
+        QRectF imageRect(option.rect.x() + dw / 2 + margins.left(),
+                         option.rect.y() + extra + margins.top(),
+                         tileWidth - margins.left() - margins.right(), tileHeight - margins.top() - margins.bottom());
+        painter->drawImage(imageRect, overlay->image());
+    }
 
     if (m->showLabels()) {
         QString name = fm.elidedText(label, Qt::ElideRight, option.rect.width());
@@ -207,6 +216,12 @@ void TileDelegate::paint(QPainter *painter,
                           imageRect.topLeft() + tileToPixelCoords(1, 1, mView->zoomable()->scale(), 0, 1));
         painter->drawLine(imageRect.topLeft() + tileToPixelCoords(1, 1, mView->zoomable()->scale(), 0, 1),
                           imageRect.topLeft() + tileToPixelCoords(1, 1, mView->zoomable()->scale(), 0, 0));
+    }
+
+    // Drag-and-drop
+    if (index == m->dropIndex()) {
+        QRect r = option.rect.adjusted(extra, extra, -extra, -extra);
+        painter->drawRect(r);
     }
 
     // Focus rect around 'current' item
@@ -300,8 +315,12 @@ void MixedTilesetView::mouseMoveEvent(QMouseEvent *event)
             mToolTipIndex = index;
             QVariant tooltip = index.data(Qt::ToolTipRole);
             if (tooltip.canConvert<QString>())
-                QToolTip::showText(event->globalPos(), tooltip.toString(), this,
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+                QToolTip::showText(event->globalPosition().toPoint(), tooltip.toString(), this,
                                    visualRect(index));
+#else
+                QToolTip::showText(event->globalPos(), tooltip.toString(), this, visualRect(index));
+#endif
             return;
         } else if (!index.isValid() && mToolTipIndex.isValid()) {
             if (model()->tileAt(mToolTipIndex)) {
@@ -322,6 +341,40 @@ void MixedTilesetView::mouseReleaseEvent(QMouseEvent *event)
     }
 
     QTableView::mouseReleaseEvent(event);
+}
+
+void MixedTilesetView::dragMoveEvent(QDragMoveEvent *event)
+{
+    QAbstractItemView::dragMoveEvent(event);
+
+    if (event->isAccepted()) {
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+        QModelIndex index = indexAt(event->pos());
+#else
+        QModelIndex index = indexAt(event->position().toPoint());
+#endif
+        if (model()->tileAt(index) == nullptr) {
+            event->ignore();
+            return;
+        }
+        model()->setDropCoords(index);
+    } else {
+        model()->setDropCoords(QModelIndex());
+        event->ignore();
+        return;
+    }
+}
+
+void MixedTilesetView::dragLeaveEvent(QDragLeaveEvent *event)
+{
+    model()->setDropCoords(QModelIndex());
+    QAbstractItemView::dragLeaveEvent(event);
+}
+
+void MixedTilesetView::dropEvent(QDropEvent *event)
+{
+    QAbstractItemView::dropEvent(event);
+    model()->setDropCoords(QModelIndex());
 }
 
 void MixedTilesetView::wheelEvent(QWheelEvent *event)
@@ -652,12 +705,15 @@ QModelIndex MixedTilesetModel::index(void *userData)
 }
 
 QString MixedTilesetModel::mMimeType(QLatin1String("application/x-tilezed-tile"));
+QString MixedTilesetModel::mGridMimeType(QLatin1String("application/x-tilezed-tile-grid"));
 
 QStringList MixedTilesetModel::mimeTypes() const
 {
     QStringList types;
     types << mMimeType;
-    return types;}
+    types << mGridMimeType;
+    return types;
+}
 
 QMimeData *MixedTilesetModel::mimeData(const QModelIndexList &indexes) const
 {
@@ -674,6 +730,32 @@ QMimeData *MixedTilesetModel::mimeData(const QModelIndexList &indexes) const
     }
 
     mimeData->setData(mMimeType, encodedData);
+
+    {
+        int minX = 1000, minY = 1000, maxX = -1, maxY = -1;
+        for (const QModelIndex &index : indexes) {
+            if (Tile *tile = tileAt(index)) {
+                minX = std::min(minX, index.column());
+                minY = std::min(minY, index.row());
+                maxX = std::max(maxX, index.column());
+                maxY = std::max(maxY, index.row());
+            }
+        }
+        if (minX <= maxX) {
+            encodedData.clear();
+            QDataStream stream2(&encodedData, QIODevice::WriteOnly);
+            for (const QModelIndex &index : indexes) {
+                if (Tile *tile = tileAt(index)) {
+                    stream2 << quint16(index.column() - minX);
+                    stream2 << quint16(index.row() - minY);
+                    stream2 << tile->tileset()->name();
+                    stream2 << tile->id();
+                }
+            }
+            mimeData->setData(mGridMimeType, encodedData);
+        }
+    }
+
     return mimeData;
 }
 
@@ -687,6 +769,24 @@ bool MixedTilesetModel::dropMimeData(const QMimeData *data, Qt::DropAction actio
     if (action == Qt::IgnoreAction)
          return true;
 
+    if (data->hasFormat(mGridMimeType)) {
+        row = dropIndex().row();
+        column = dropIndex().column();
+        QByteArray encodedData = data->data(mGridMimeType);
+        QDataStream stream(&encodedData, QIODevice::ReadOnly);
+        while (!stream.atEnd()) {
+            quint16 dx, dy;
+            stream >> dx;
+            stream >> dy;
+            QString tilesetName;
+            stream >> tilesetName;
+            int tileId;
+            stream >> tileId;
+            emit tileDroppedAt(tilesetName, tileId, row + dy, column + dx, parent);
+        }
+        return true;
+    }
+
      if (!data->hasFormat(mMimeType))
          return false;
 
@@ -699,6 +799,7 @@ bool MixedTilesetModel::dropMimeData(const QMimeData *data, Qt::DropAction actio
          int tileId;
          stream >> tileId;
          emit tileDropped(tilesetName, tileId);
+         emit tileDroppedAt(tilesetName, tileId, row, column, parent);
      }
 
      return true;
@@ -717,7 +818,7 @@ void MixedTilesetModel::setTiles(const QList<Tile *> &tiles,
 
     mTiles = tiles;
     mUserData = userData;
-    mTileset = 0;
+    mTileset = tiles.isEmpty() ? nullptr : tiles.first()->tileset();
     mTileToItem.clear();
     mUserDataToItem.clear();
     mTileItemsByIndex.clear();
@@ -748,6 +849,9 @@ void MixedTilesetModel::setTiles(const QList<Tile *> &tiles,
             mTileToItem[tile] = item; // may not be unique!
         if (!mUserDataToItem.contains(item->mUserData))
             mUserDataToItem[item->mUserData] = item; // may not be unique!
+        if (mTileset != nullptr && tile->tileset() != mTileset) {
+            mTileset = nullptr;
+        }
         index++;
     }
 
@@ -829,13 +933,15 @@ void *MixedTilesetModel::userDataAt(const QModelIndex &index) const
 void MixedTilesetModel::setCategoryBounds(const QModelIndex &index, const QRect &bounds)
 {
     QRect viewBounds = bounds.translated(index.column(), index.row());
-    for (int x = 0; x < bounds.width(); x++)
+    for (int x = 0; x < bounds.width(); x++) {
         for (int y = 0; y < bounds.height(); y++) {
             if (Item *item = toItem(this->index(index.row() + y, index.column() + x))) {
-                if (item->mTile)
+                if (item->mTile) {
                     item->mCategoryBounds = viewBounds;
+                }
             }
         }
+    }
 }
 
 void MixedTilesetModel::setCategoryBounds(Tile *tile, const QRect &bounds)
@@ -859,6 +965,23 @@ void MixedTilesetModel::setCategoryBounds(int tileIndex, const QRect &bounds)
     }
 }
 
+void MixedTilesetModel::clearCategoryBounds(const QModelIndex &index)
+{
+    QRect bounds = categoryBounds(index);
+    if (bounds.isEmpty()) {
+        return;
+    }
+    for (int x = 0; x < bounds.width(); x++) {
+        for (int y = 0; y < bounds.height(); y++) {
+            if (Item *item = toItem(this->index(bounds.top() + y, bounds.left() + x))) {
+                if (item->mTile) {
+                    item->mCategoryBounds = QRect();
+                }
+            }
+        }
+    }
+}
+
 QRect MixedTilesetModel::categoryBounds(const QModelIndex &index) const
 {
     if (Item *item = toItem(index)) {
@@ -875,6 +998,31 @@ QRect MixedTilesetModel::categoryBounds(Tile *tile) const
             return item->mCategoryBounds;
     }
     return QRect();
+}
+
+void MixedTilesetModel::setOverlayTile(const QModelIndex &index, Tile *tile)
+{
+    if (Item *item = toItem(index)) {
+        if (item->mTile) {
+            item->mOverlayTile = tile;
+        }
+    }
+}
+
+Tile *MixedTilesetModel::overlayTile(const QModelIndex &index) const
+{
+    if (Item *item = toItem(index)) {
+        return item->mOverlayTile;
+    }
+    return nullptr;
+}
+
+Tile *MixedTilesetModel::overlayTile(Tile *tile) const
+{
+    if (Item *item = toItem(tile)) {
+        return item->mOverlayTile;
+    }
+    return nullptr;
 }
 
 void MixedTilesetModel::scaleChanged(qreal scale)

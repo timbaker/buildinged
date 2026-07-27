@@ -10,7 +10,7 @@ isEmpty(INSTALL_ONLY_BUILD) {
 }
 macx {
     DESTDIR = ../../bin/TileZed.app/Contents/Frameworks
-    QMAKE_LFLAGS_SONAME = -Wl,-install_name,@executable_path/../Frameworks/
+    QMAKE_LFLAGS_SONAME = -Wl,-install_name,@rpath/../Frameworks/
 } else {
     DESTDIR = ../../lib
 }
@@ -23,10 +23,12 @@ DEFINES += ZOMBOID
 contains(QT_CONFIG, reduce_exports): CONFIG += hide_symbols
 #OBJECTS_DIR = .obj
 SOURCES += compression.cpp \
+    customtilesize.cpp \
     imagelayer.cpp \
     isometricrenderer.cpp \
     layer.cpp \
     map.cpp \
+    maplevel.cpp \
     mapobject.cpp \
     mapreader.cpp \
     maprenderer.cpp \
@@ -34,6 +36,7 @@ SOURCES += compression.cpp \
     objectgroup.cpp \
     orthogonalrenderer.cpp \
     properties.cpp \
+    propertiesgrid.cpp \
     staggeredrenderer.cpp \
     tilelayer.cpp \
     tileset.cpp \
@@ -42,10 +45,12 @@ SOURCES += compression.cpp \
     ztilelayergroup.cpp \
     tile.cpp
 HEADERS += compression.h \
+    customtilesize.h \
     imagelayer.h \
     isometricrenderer.h \
     layer.h \
     map.h \
+    maplevel.h \
     mapobject.h \
     mapreader.h \
     maprenderer.h \
@@ -54,6 +59,7 @@ HEADERS += compression.h \
     objectgroup.h \
     orthogonalrenderer.h \
     properties.h \
+    propertiesgrid.h \
     staggeredrenderer.h \
     tile.h \
     tiled_global.h \

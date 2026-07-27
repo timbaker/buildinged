@@ -23,6 +23,7 @@
 #include "buildingmap.h"
 #include "buildingobjects.h"
 #include "buildingpreferences.h"
+#include "buildingroomdef.h"
 #include "buildingtemplates.h"
 #include "buildingtiles.h"
 #include "buildingtiletools.h"
@@ -83,7 +84,8 @@ void CompositeLayerGroupItem::paint(QPainter *p, const QStyleOptionGraphicsItem 
     if (mLayerGroup->needsSynch() /*mBoundingRect != mLayerGroup->boundingRect(mRenderer)*/)
         return;
 
-    mRenderer->drawTileLayerGroup(p, mLayerGroup, option->exposedRect);
+    OrderedCellsTemporaries vars;
+    mRenderer->drawTileLayerGroup(p, mLayerGroup, option->exposedRect, reinterpret_cast<ZTileLayerGroupRenderData*>(&vars));
 #if 1 && !defined(QT_NO_DEBUG)
     QPen pen(Qt::white);
     pen.setCosmetic(true);
@@ -226,11 +228,91 @@ void TileModeSelectionItem::updateBoundingRect()
 
 /////
 
+SquarePropertiesItem::SquarePropertiesItem(BuildingIsoScene *scene) :
+    mScene(scene)
+{
+    setZValue(1000);
+
+    connect(document(), &BuildingDocument::currentFloorChanged,
+            this, &SquarePropertiesItem::currentLevelChanged);
+    connect(document(), &BuildingDocument::squarePropertiesChanged,
+            this, &SquarePropertiesItem::squarePropertiesChanged);
+
+    updateBoundingRect();
+}
+
+QRectF SquarePropertiesItem::boundingRect() const
+{
+    return mBoundingRect;
+}
+
+void SquarePropertiesItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *)
+{
+    BuildingFloor *floor = document()->currentFloor();
+    if (floor == nullptr) {
+        return;
+    }
+    QRegion selection = floor->squarePropertiesGrid()->region();
+
+    QColor highlight(Qt::green);
+    highlight.setAlpha(128);
+
+    MapRenderer *renderer = mScene->mapRenderer();
+//    renderer->drawTileSelection(p, selection, highlight, option->exposedRect, mScene->currentLevel());
+
+    QPen pen(highlight, 4);
+    painter->setPen(pen);
+    for (const QRect &r : selection) {
+        for (int y = r.top(); y <= r.bottom(); y++) {
+            for (int x = r.left(); x <= r.right(); x++) {
+                QRectF rf(x + 0.1, y + 0.1, 1 - 0.1 * 2, 1 - 0.1 * 2);
+                QPolygonF polygon = renderer->tileToPixelCoords(rf, floor->level());
+                if (QRectF(polygon.boundingRect()).intersects(option->exposedRect)) {
+                    painter->drawConvexPolygon(polygon);
+                }
+            }
+        }
+    }
+}
+
+BuildingDocument *SquarePropertiesItem::document() const
+{
+    return mScene->document();
+}
+
+void SquarePropertiesItem::currentLevelChanged()
+{
+    prepareGeometryChange();
+    updateBoundingRect();
+}
+
+void SquarePropertiesItem::squarePropertiesChanged(BuildingFloor *floor, const QRegion &region)
+{
+    Q_UNUSED(floor)
+    Q_UNUSED(region)
+    prepareGeometryChange();
+    updateBoundingRect();
+}
+
+void SquarePropertiesItem::updateBoundingRect()
+{
+    BuildingFloor *floor = document()->currentFloor();
+    QRegion rgn;
+    if (floor != nullptr) {
+        rgn = floor->squarePropertiesGrid()->region();
+    }
+    const QRect r = rgn.boundingRect();
+    mBoundingRect = mScene->mapRenderer()->boundingRect(r, document()->currentLevel());
+}
+
+/////
+
 BuildingIsoScene::BuildingIsoScene(QObject *parent) :
     BuildingBaseScene(parent),
     mBuildingMap(0),
     mGridItem(0),
     mTileSelectionItem(0),
+    mSquarePropertiesItem(nullptr),
     mDarkRectangle(new QGraphicsRectItem),
     mCurrentTool(0),
     mLayerGroupWithToolTiles(0),
@@ -270,6 +352,8 @@ BuildingIsoScene::BuildingIsoScene(QObject *parent) :
             this, &BuildingIsoScene::highlightRoomChanged);
     connect(prefs(), &BuildingPreferences::showLowerFloorsChanged,
             this, &BuildingIsoScene::showLowerFloorsChanged);
+    connect(prefs(), &BuildingPreferences::showOnlyFloorsChanged,
+            this, &BuildingIsoScene::showOnlyFloorsChanged);
 
     connect(ToolManager::instance(), &ToolManager::currentToolChanged,
             this, &BuildingIsoScene::currentToolChanged);
@@ -310,7 +394,9 @@ void BuildingIsoScene::setDocument(BuildingDocument *doc)
 
     // Delete before clearing mDocument.
     delete mTileSelectionItem;
-    mTileSelectionItem = 0;
+    mTileSelectionItem = nullptr;
+    delete mSquarePropertiesItem;
+    mSquarePropertiesItem = nullptr;
 
     mDocument = doc;
 
@@ -326,6 +412,7 @@ void BuildingIsoScene::setDocument(BuildingDocument *doc)
         qDeleteAll(mLayerGroupItems);
         mLayerGroupItems.clear();
         delete mGridItem;
+        delete mBasementAccessItem;
 
         dynamic_cast<IsoBuildingRenderer*>(mRenderer)->mMapRenderer = 0;
 
@@ -348,6 +435,8 @@ void BuildingIsoScene::setDocument(BuildingDocument *doc)
 
     setSceneRect(mBuildingMap->mapComposite()->boundingRect(mBuildingMap->mapRenderer()));
     mDarkRectangle->setRect(sceneRect());
+
+    calculateUnlitRoomMask();
 
     connect(mDocument, &BuildingDocument::currentFloorChanged,
             this, &BuildingIsoScene::currentFloorChanged);
@@ -401,7 +490,13 @@ void BuildingIsoScene::setDocument(BuildingDocument *doc)
     connect(mDocument, &BuildingDocument::roomRemoved, this, &BuildingIsoScene::roomRemoved);
     connect(mDocument, &BuildingDocument::roomChanged, this, &BuildingIsoScene::roomChanged);
 
+    connect(mDocument, &BuildingDocument::basementAccessChanged, this, &BuildingIsoScene::basementAccessChanged);
+
     emit documentChanged();
+
+    if (prefs()->showOnlyFloors()) {
+        showOnlyFloorsChanged(true);
+    }
 }
 
 void BuildingIsoScene::clearDocument()
@@ -565,8 +660,10 @@ void BuildingIsoScene::setToolTiles(const FloorTileGrid *tiles,
     }
     mLayerGroupWithToolTiles = layerGroup;
 
+    int TileScale = 2;
     QRectF r = mBuildingMap->mapRenderer()->boundingRect(tiles->bounds().translated(pos), currentLevel())
-            .adjusted(0, -(128-32)*2, 0, 0); // use mMap->drawMargins()
+            .adjusted(-64*TileScale, -(256-32)*TileScale, 64*TileScale, 0); // extra for jumbo trees
+//            .adjusted(0, -(128-32)*2, 0, 0); // use mMap->drawMargins()
     update(r);
 }
 
@@ -672,6 +769,13 @@ void BuildingIsoScene::setEditingTiles(bool editing)
     }
 }
 
+void BuildingIsoScene::setEditingAttributes(bool editing)
+{
+    if (editing != mEditingAttributes) {
+        mEditingAttributes = editing;
+    }
+}
+
 bool isRectAdjacent(const QRect &r, const QRect &r2)
 {
     return r.adjusted(-1, -1, 1, 1).intersects(r2);
@@ -714,7 +818,6 @@ QVector<QRect> adjacentRects(const QVector<QRect> &rects, const QPoint &pos)
     return ret;
 }
 
-#include "buildingroomdef.h"
 void BuildingIsoScene::setCursorPosition(const QPoint &pos)
 {
     if (mHighlightRoomLock)
@@ -746,6 +849,32 @@ void BuildingIsoScene::setCursorPosition(const QPoint &pos)
     }
 }
 
+void BuildingIsoScene::calculateUnlitRoomMask()
+{
+    bool highlightRoom = prefs()->highlightRoom();
+    if (highlightRoom) {
+        prefs()->setHighlightRoom(false);
+        qApp->processEvents(QEventLoop::ExcludeUserInputEvents);
+    }
+    bool showRoomLights = prefs()->highlightUnlitRooms();
+    Building *building = this->building();
+    for (BuildingFloor *floor : building->floors()) {
+        CompositeLayerGroupItem *item = itemForFloor(floor);
+        if (item == nullptr) {
+            continue;
+        }
+        if (showRoomLights) {
+            item->layerGroup()->calculateUnlitRoomMask(building);
+        } else {
+            item->layerGroup()->clearUseImageBlack();
+        }
+    }
+    if (highlightRoom) {
+        prefs()->setHighlightRoom(true);
+    }
+    update();
+}
+
 void BuildingIsoScene::BuildingToMap()
 {
     if (mBuildingMap) {
@@ -753,8 +882,10 @@ void BuildingIsoScene::BuildingToMap()
 
         qDeleteAll(mLayerGroupItems);
         mLayerGroupItems.clear();
+        delete mBasementAccessItem;
         delete mGridItem;
         delete mTileSelectionItem;
+        delete mSquarePropertiesItem;
 
         mLayerGroupWithToolTiles = 0;
         mNonEmptyLayerGroupItem = 0;
@@ -779,6 +910,10 @@ void BuildingIsoScene::BuildingToMap()
         mLayerGroupItems[layerGroup->level()] = item;
     }
 
+    mBasementAccessItem = new GraphicsBasementAccessItem(this);
+    mBasementAccessItem->setZValue(ZVALUE_GRID);
+    addItem(mBasementAccessItem);
+
     mGridItem = new TileModeGridItem(mDocument, mBuildingMap->mapRenderer());
     mGridItem->setEditingTiles(editingTiles());
     mGridItem->synchWithBuilding();
@@ -787,6 +922,11 @@ void BuildingIsoScene::BuildingToMap()
 
     mTileSelectionItem = new TileModeSelectionItem(this);
     addItem(mTileSelectionItem);
+
+    if (editingAttributes()) {
+        mSquarePropertiesItem = new SquarePropertiesItem(this);
+        addItem(mSquarePropertiesItem);
+    }
 
     mRoomSelectionItem = new RoomSelectionItem(this);
     addItem(mRoomSelectionItem);
@@ -853,6 +993,8 @@ void BuildingIsoScene::currentFloorChanged()
 
     mGridItem->synchWithBuilding();
 
+    mBasementAccessItem->setVisible((currentLevel() == 0) && building()->hasBasementAccess());
+
     if (!mNonEmptyLayer.isEmpty()) {
         mNonEmptyLayerGroupItem->layerGroup()->setLayerNonEmpty(mNonEmptyLayer, false);
         mNonEmptyLayerGroupItem->layerGroup()->setHighlightLayer(QString());
@@ -864,6 +1006,10 @@ void BuildingIsoScene::currentFloorChanged()
     if (BuildingFloor *floor = building()->floor(mCurrentLevel))
         mBuildingMap->suppressTiles(floor, QRegion());
     mCurrentLevel = currentLevel();
+
+    if ((mLoading == false) && prefs()->showOnlyFloors()) {
+        showOnlyFloorsChanged(true);
+    }
 }
 
 void BuildingIsoScene::currentLayerChanged()
@@ -996,6 +1142,7 @@ void BuildingIsoScene::buildingResized()
     BuildingBaseScene::buildingResized();
     mBuildingMap->buildingResized();
     mGridItem->synchWithBuilding();
+    mBasementAccessItem->synchWithBuilding();
 }
 
 // Called when the building is flipped or rotated.
@@ -1004,6 +1151,7 @@ void BuildingIsoScene::buildingRotated()
     BuildingBaseScene::buildingRotated();
     mBuildingMap->buildingRotated();
     mGridItem->synchWithBuilding();
+    mBasementAccessItem->synchWithBuilding();
 }
 
 void BuildingIsoScene::highlightFloorChanged(bool highlight)
@@ -1040,6 +1188,21 @@ void BuildingIsoScene::showLowerFloorsChanged(bool show)
     highlightFloorChanged(prefs()->highlightFloor());
 }
 
+#include "buildingtmx.h"
+
+void BuildingIsoScene::showOnlyFloorsChanged(bool show)
+{
+    if (!mDocument)
+        return;
+    for (BuildingFloor *floor : mDocument->building()->floors()) {
+        for (const QString& layerName : BuildingTMX::instance()->tileLayerNamesForLevel(floor->level())) {
+            if (layerName == QStringLiteral("Floor"))
+                continue;
+            mDocument->setLayerVisibility(floor, layerName, (show == false) || (floor->level() < mDocument->currentLevel()));
+        }
+    }
+}
+
 void BuildingIsoScene::tilesetAdded(Tileset *tileset)
 {
     if (!mDocument)
@@ -1073,6 +1236,12 @@ void BuildingIsoScene::tilesetChanged(Tileset *tileset)
 void BuildingIsoScene::currentToolChanged(BaseTool *tool)
 {
     mCurrentTool = tool;
+}
+
+void BuildingIsoScene::basementAccessChanged()
+{
+    mBasementAccessItem->synchWithBuilding();
+    mBasementAccessItem->setVisible((currentLevel() == 0) && building()->hasBasementAccess());
 }
 
 void BuildingIsoScene::aboutToRecreateLayers()
@@ -1171,8 +1340,10 @@ void BuildingIsoScene::layersUpdated(int level, const QRegion &rgn)
                 mDarkRectangle->setRect(sceneRect);
             }
         }
-        for (QRect r : rgn)
-            item->update(mapRenderer()->boundingRect(r, level).adjusted(0,-(128-32)*2,0,0));
+        int TileScale = 2;
+        for (QRect r : rgn) {
+            item->update(mapRenderer()->boundingRect(r, level).adjusted(-64*TileScale, -(256-32)*TileScale, 64*TileScale, 0)); // // extra for jumbo trees
+        }
     }
 }
 
@@ -1267,17 +1438,29 @@ void BuildingIsoView::mouseMoveEvent(QMouseEvent *event)
     if (mHandScrolling) {
         QScrollBar *hBar = horizontalScrollBar();
         QScrollBar *vBar = verticalScrollBar();
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+        const QPoint d = event->globalPosition().toPoint() - mLastMousePos;
+#else
         const QPoint d = event->globalPos() - mLastMousePos;
+#endif
         hBar->setValue(hBar->value() + (isRightToLeft() ? d.x() : -d.x()));
         vBar->setValue(vBar->value() - d.y());
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+        mLastMousePos = event->globalPosition().toPoint();
+#else
         mLastMousePos = event->globalPos();
+#endif
         return;
     }
 
     QGraphicsView::mouseMoveEvent(event);
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    mLastMousePos = event->globalPosition().toPoint();
+#else
     mLastMousePos = event->globalPos();
+#endif
     mLastMouseScenePos = mapToScene(viewport()->mapFromGlobal(mLastMousePos));
 
     if (!scene()->document())

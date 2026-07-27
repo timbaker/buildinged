@@ -40,6 +40,8 @@ using namespace BuildingEditor;
 using namespace Tiled;
 using namespace Tiled::Internal;
 
+#define HORIZONTAL_SCROLLBAR_FIX 1
+
 BuildingTilesetDock::BuildingTilesetDock(QWidget *parent) :
     QDockWidget(parent),
     ui(new Ui::BuildingTilesetDock),
@@ -49,6 +51,15 @@ BuildingTilesetDock::BuildingTilesetDock(QWidget *parent) :
     mActionSwitchLayer(new QAction(this))
 {
     ui->setupUi(this);
+
+#ifndef TILESET_LIST_FIXED_WIDTH
+    mSplitter = ui->splitter;
+#endif
+
+#if HORIZONTAL_SCROLLBAR_FIX
+    // https://stackoverflow.com/questions/44633066/qlistwidget-horizontal-scrollbar-causes-selection-to-go-out-of-view
+    ui->tilesets->setAutoScroll(false);
+#endif
 
     connect(ui->filter, &QLineEdit::textEdited, this, &BuildingTilesetDock::filterEdited);
 
@@ -124,6 +135,35 @@ void BuildingTilesetDock::firstTimeSetup()
 {
     if (!ui->tilesets->count())
         setTilesetList(); // TileMetaInfoMgr signals might have done this already.
+}
+
+void BuildingTilesetDock::writeSettings(QSettings &settings)
+{
+#ifndef TILESET_LIST_FIXED_WIDTH
+    settings.beginGroup(QLatin1String("TilesetDock"));
+    QVariantList v;
+    for (int size : mSplitter->sizes()) {
+        v += size;
+    }
+    settings.setValue(tr("%1/sizes").arg(mSplitter->objectName()), v);
+    settings.endGroup();
+#endif
+}
+
+void BuildingTilesetDock::readSettings(QSettings &settings)
+{
+#ifndef TILESET_LIST_FIXED_WIDTH
+    settings.beginGroup(QLatin1String("TilesetDock"));
+    QVariant v = settings.value(tr("%1/sizes").arg(mSplitter->objectName()));
+    if (v.canConvert(QVariant::List)) {
+        QList<int> sizes;
+        for (QVariant v2 : v.toList()) {
+            sizes += v2.toInt();
+        }
+        mSplitter->setSizes(sizes);
+    }
+    settings.endGroup();
+#endif
 }
 
 void BuildingTilesetDock::currentDocumentChanged(BuildingDocument *document)
@@ -211,19 +251,25 @@ void BuildingTilesetDock::setTilesetList()
 {
     ui->tilesets->clear();
 
+#ifdef TILESET_LIST_FIXED_WIDTH
     int width = 64;
     QFontMetrics fm = ui->tilesets->fontMetrics();
+#endif
     foreach (Tileset *tileset, TileMetaInfoMgr::instance()->tilesets()) {
         QListWidgetItem *item = new QListWidgetItem();
         item->setText(tileset->name());
         if (tileset->isMissing())
             item->setForeground(Qt::red);
         ui->tilesets->addItem(item);
+#ifdef TILESET_LIST_FIXED_WIDTH
         width = qMax(width, fm.horizontalAdvance(tileset->name()));
+#endif
     }
+#ifdef TILESET_LIST_FIXED_WIDTH
     int sbw = ui->tilesets->verticalScrollBar()->sizeHint().width();
     ui->tilesets->setFixedWidth(width + 16 + sbw);
     ui->filter->setFixedWidth(ui->tilesets->width());
+#endif
 
     filterEdited(ui->filter->text());
 }
@@ -266,6 +312,30 @@ void BuildingTilesetDock::currentTilesetChanged(int row)
     if (row >= 0)
         mCurrentTileset = TileMetaInfoMgr::instance()->tileset(row);
     setTilesList();
+
+#if HORIZONTAL_SCROLLBAR_FIX
+    const QRect rect = ui->tilesets->visualItemRect(ui->tilesets->currentItem());
+    if (!rect.isValid()) {
+        return;
+    }
+    const QRect viewport = ui->tilesets->viewport()->rect();
+    if (viewport.contains(rect)) {
+        return;
+    }
+    const bool above = rect.top() < viewport.top();
+    const bool below = rect.bottom() > viewport.bottom();
+    // Like QCommonListViewBase::verticalScrollToValue() but value is divided by item height.
+    // The original code seems to assume the scrollbar min/max are pixel values.
+    int value = ui->tilesets->verticalScrollBar()->value();
+    int spacing = ui->tilesets->spacing();
+    QRect adjusted = rect.adjusted(-spacing, -spacing, spacing, spacing);
+    if (above) {
+        value += adjusted.top() / rect.height();
+    } else if (below) {
+        value += qMin(adjusted.top(), adjusted.bottom() + 1 - viewport.height() + (viewport.height() % rect.height())) / rect.height();
+    }
+    ui->tilesets->verticalScrollBar()->setValue(value);
+#endif
 }
 
 void BuildingTilesetDock::tileSelectionChanged()
@@ -303,7 +373,7 @@ void BuildingTilesetDock::tilesetChanged(Tileset *tileset)
 
     int row = TileMetaInfoMgr::instance()->indexOf(tileset);
     if (QListWidgetItem *item = ui->tilesets->item(row))
-        item->setForeground(tileset->isMissing() ? Qt::red : Qt::black);
+        item->setForeground(tileset->isMissing() ? Qt::red : QBrush());
 }
 
 void BuildingTilesetDock::tileLayerNameChanged(BuildingTilesetDock::Tile *tile)

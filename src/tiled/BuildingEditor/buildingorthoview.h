@@ -54,6 +54,46 @@ class OrthoBuildingRenderer;
 
 /////
 
+class GraphicsBasementAccessItem : public QGraphicsItem
+{
+public:
+    GraphicsBasementAccessItem(BuildingBaseScene *editor);
+
+    QPainterPath shape() const override;
+
+    QRectF boundingRect() const override;
+
+    void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
+
+    void setMouseOver(bool mouseOver);
+
+    bool mouseOver() const
+    {
+        return mMouseOver;
+    }
+
+    void setDragging(bool dragging);
+    void setDragOffset(const QPoint &offset);
+
+    void synchWithBuilding();
+
+private:
+    QPainterPath calcShape() const;
+    QRectF tileBounds() const;
+    bool isNorth() const;
+    bool isWest() const;
+    int accessX() const;
+    int accessY() const;
+
+private:
+    BuildingBaseScene *mEditor;
+    QRectF mBoundingRect;
+    bool mDragging;
+    QPoint mDragOffset;
+    QPainterPath mShape;
+    bool mMouseOver;
+};
+
 class GraphicsFloorItem : public QGraphicsItem
 {
 public:
@@ -482,6 +522,9 @@ public:
     virtual void setEditingTiles(bool editing);
     bool editingTiles() const { return mEditingTiles; }
 
+    virtual void setEditingAttributes(bool editing);
+    bool editingAttributes() const { return mEditingAttributes; }
+
     virtual bool shouldShowFloorItem(BuildingFloor *floor) const;
     virtual bool shouldShowObjectItem(BuildingObject *object) const;
 
@@ -489,6 +532,11 @@ public:
 
     RoomSelectionItem *roomSelectionItem() const
     { return mRoomSelectionItem; }
+
+    GraphicsBasementAccessItem *basementAccessItem() const
+    {
+        return mBasementAccessItem;
+    }
 
     /////
     // Tile-editing-only methods
@@ -531,7 +579,9 @@ protected:
     QSet<GraphicsObjectItem*> mSelectedObjectItems;
     BuildingObject *mMouseOverObject;
     bool mEditingTiles;
+    bool mEditingAttributes;
     RoomSelectionItem *mRoomSelectionItem;
+    GraphicsBasementAccessItem *mBasementAccessItem = nullptr;
 };
 
 class BuildingOrthoScene : public BuildingBaseScene
@@ -579,6 +629,8 @@ private slots:
 
     void buildingResized();
     void buildingRotated();
+
+    void basementAccessChanged();
 
 private:
     GraphicsGridItem *mGridItem;

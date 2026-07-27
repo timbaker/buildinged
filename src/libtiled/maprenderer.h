@@ -41,6 +41,7 @@ class MapObject;
 class TileLayer;
 #ifdef ZOMBOID
 class ZTileLayerGroup;
+typedef void *ZTileLayerGroupRenderData;
 #endif
 class ImageLayer;
 
@@ -56,8 +57,10 @@ public:
     MapRenderer(const Map *map)
         : mAbortDrawing(0)
         , mMap(map)
+        , mMinLevel(0)
         , mMaxLevel(0)
         , m2x(false)
+        , mShowInvisibleTiles(true)
     {}
 #else
     MapRenderer(const Map *map) : mMap(map) {}
@@ -118,7 +121,7 @@ public:
 
 #ifdef ZOMBOID
     virtual void drawTileLayerGroup(QPainter *painter, ZTileLayerGroup *layerGroup,
-                               const QRectF &exposed = QRectF()) const = 0;
+                               const QRectF &exposed = QRectF(), ZTileLayerGroupRenderData *renderData = nullptr) const = 0;
 #endif
 
     /**
@@ -167,6 +170,7 @@ public:
     { return pixelToTileCoords(point.x(), point.y(), level); }
 
     QPoint pixelToTileCoordsInt(const QPointF &point, int level = 0) const;
+    QPoint pixelToTileCoordsNearest(const QPointF &point, int level = 0) const;
 
     /**
      * Returns the pixel coordinates matching the given tile coordinates.
@@ -207,6 +211,16 @@ public:
         return m2x;
     }
 
+    void setShowInvisibleTiles(bool show)
+    {
+        mShowInvisibleTiles = show;
+    }
+
+    bool isShowInvisibleTiles() const
+    {
+        return mShowInvisibleTiles;
+    }
+
 #endif
 
     QPolygonF tileToPixelCoords(const QPolygonF &polygon, int level = 0) const
@@ -217,8 +231,13 @@ public:
         return screenPolygon;
     }
 
+    void setMinLevel(int level) { mMinLevel = level; }
+    int minLevel() const { return mMinLevel; }
+
     void setMaxLevel(int level) { mMaxLevel = level; }
     int maxLevel() const { return mMaxLevel; }
+
+    int totalLevels() const { return maxLevel() - minLevel() + 1; }
 
     bool *mAbortDrawing;
 
@@ -259,8 +278,10 @@ protected:
 private:
     const Map *mMap;
 #ifdef ZOMBOID
+    int mMinLevel;
     int mMaxLevel;
     bool m2x;
+    bool mShowInvisibleTiles;
 #endif
 };
 

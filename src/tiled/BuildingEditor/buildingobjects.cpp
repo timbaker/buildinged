@@ -272,8 +272,6 @@ void FurnitureObject::rotate(bool right)
     int oldWidth = mFloor->height();
     int oldHeight = mFloor->width();
 
-    FurnitureTile *oldTile = mFurnitureTile;
-    FurnitureTile *newTile = mFurnitureTile;
     FurnitureTile::FurnitureOrientation map[8];
     if (right) {
         map[FurnitureTile::FurnitureW] = FurnitureTile::FurnitureN;
@@ -294,7 +292,8 @@ void FurnitureObject::rotate(bool right)
         map[FurnitureTile::FurnitureNE] = FurnitureTile::FurnitureNW;
         map[FurnitureTile::FurnitureNW] = FurnitureTile::FurnitureSW;
     }
-    newTile = oldTile->owner()->tile(map[oldTile->orient()]);
+    FurnitureTile *oldTile = mFurnitureTile;
+    FurnitureTile *newTile = oldTile->owner()->tile(map[oldTile->orient()]);
 
     if (right) {
         int x = mX;
@@ -546,6 +545,17 @@ void RoofObject::rotate(bool right)
         case ShallowPeakWE: mType = ShallowPeakNS; break;
         case ShallowPeakNS: mType = ShallowPeakWE; break;
 
+        case Slope30W: mType = Slope30N; break;
+        case Slope30N: mType = Slope30E; break;
+        case Slope30E: mType = Slope30S; break;
+        case Slope30S: mType = Slope30W; break;
+        case Peak30WE: mType = Peak30NS; break;
+        case Peak30NS: mType = Peak30WE; break;
+        case Dormer30W: mType = Dormer30N; break;
+        case Dormer30N: mType = Dormer30E; break;
+        case Dormer30E: mType = Dormer30S; break;
+        case Dormer30S: mType = Dormer30W; break;
+
         case CornerInnerSW: mType = CornerInnerNW; break;
         case CornerInnerNW: mType = CornerInnerNE; break;
         case CornerInnerNE: mType = CornerInnerSE; break;
@@ -555,6 +565,17 @@ void RoofObject::rotate(bool right)
         case CornerOuterNW: mType = CornerOuterNE; break;
         case CornerOuterNE: mType = CornerOuterSE; break;
         case CornerOuterSE: mType = CornerOuterSW; break;
+
+        case CornerSlope30InnerSW: mType = CornerSlope30InnerNW; break;
+        case CornerSlope30InnerNW: mType = CornerSlope30InnerNE; break;
+        case CornerSlope30InnerNE: mType = CornerSlope30InnerSE; break;
+        case CornerSlope30InnerSE: mType = CornerSlope30InnerSW; break;
+
+        case CornerSlope30OuterSW: mType = CornerSlope30OuterNW; break;
+        case CornerSlope30OuterNW: mType = CornerSlope30OuterNE; break;
+        case CornerSlope30OuterNE: mType = CornerSlope30OuterSE; break;
+        case CornerSlope30OuterSE: mType = CornerSlope30OuterSW; break;
+
         default:
             break;
         }
@@ -591,6 +612,17 @@ void RoofObject::rotate(bool right)
         case ShallowPeakWE: mType = ShallowPeakNS; break;
         case ShallowPeakNS: mType = ShallowPeakWE; break;
 
+        case Slope30W: mType = Slope30S; break;
+        case Slope30N: mType = Slope30W; break;
+        case Slope30E: mType = Slope30N; break;
+        case Slope30S: mType = Slope30E; break;
+        case Peak30WE: mType = Peak30NS; break;
+        case Peak30NS: mType = Peak30WE; break;
+        case Dormer30W: mType = Dormer30S; break;
+        case Dormer30N: mType = Dormer30W; break;
+        case Dormer30E: mType = Dormer30N; break;
+        case Dormer30S: mType = Dormer30E; break;
+
         case CornerInnerSW: mType = CornerInnerSE; break;
         case CornerInnerNW: mType = CornerInnerSW; break;
         case CornerInnerNE: mType = CornerInnerNW; break;
@@ -600,6 +632,17 @@ void RoofObject::rotate(bool right)
         case CornerOuterNW: mType = CornerOuterSW; break;
         case CornerOuterNE: mType = CornerOuterNW; break;
         case CornerOuterSE: mType = CornerOuterNE; break;
+
+        case CornerSlope30InnerSW: mType = CornerSlope30InnerSE; break;
+        case CornerSlope30InnerNW: mType = CornerSlope30InnerSW; break;
+        case CornerSlope30InnerNE: mType = CornerSlope30InnerNW; break;
+        case CornerSlope30InnerSE: mType = CornerSlope30InnerNE; break;
+
+        case CornerSlope30OuterSW: mType = CornerSlope30OuterSE; break;
+        case CornerSlope30OuterNW: mType = CornerSlope30OuterSW; break;
+        case CornerSlope30OuterNE: mType = CornerSlope30OuterNW; break;
+        case CornerSlope30OuterSE: mType = CornerSlope30OuterNE; break;
+
         default:
             break;
         }
@@ -638,6 +681,15 @@ void RoofObject::flip(bool horizontal)
         case ShallowPeakWE:  break;
         case ShallowPeakNS:  break;
 
+        case Slope30W: mType = Slope30E; break;
+        case Slope30N: break;
+        case Slope30E: mType = Slope30W; break;
+        case Slope30S: break;
+        case Dormer30W: mType = Dormer30E; break;
+        case Dormer30N: break;
+        case Dormer30E: mType = Dormer30W; break;
+        case Dormer30S: break;
+
         case CornerInnerSW: mType = CornerInnerSE; break;
         case CornerInnerNW: mType = CornerInnerNE; break;
         case CornerInnerNE: mType = CornerInnerNW; break;
@@ -673,6 +725,15 @@ void RoofObject::flip(bool horizontal)
         case ShallowSlopeS: mType = ShallowSlopeN; break;
         case ShallowPeakWE:  break;
         case ShallowPeakNS:  break;
+
+        case Slope30W:  break;
+        case Slope30N: mType = Slope30S; break;
+        case Slope30E:  break;
+        case Slope30S: mType = Slope30N; break;
+        case Dormer30W: break;
+        case Dormer30N: mType = Dormer30S; break;
+        case Dormer30E: break;
+        case Dormer30S: mType = Dormer30N; break;
 
         case CornerInnerSW: mType = CornerInnerNW; break;
         case CornerInnerNW: mType = CornerInnerSW; break;
@@ -865,6 +926,45 @@ void RoofObject::setWidth(int width)
         mDepth = Zero;
         break;
 
+    case Slope30W:
+    case Slope30E:
+        mWidth = qBound(1, width, 6);
+        mDepth = Zero;
+        break;
+    case Slope30N:
+    case Slope30S:
+        mWidth = width;
+        mDepth = Zero;
+        break;
+    case Peak30WE:
+        mWidth = width;
+        mDepth = Zero;
+        break;
+    case Peak30NS:
+    case Peak30Quad:
+        if (width > 9) mWidth = 11;
+        else if (width > 7) mWidth = 9;
+        else if (width > 5) mWidth = 7;
+        else if (width > 3) mWidth = 5;
+        else if (width > 1) mWidth = 3;
+        else mWidth = 1;
+        mDepth = Zero;
+        break;
+    case Dormer30W:
+    case Dormer30E:
+        mWidth = width;
+        break;
+    case Dormer30N:
+    case Dormer30S:
+        if (width > 9) mWidth = std::max(width, 11);
+        else if (width > 7) mWidth = 9;
+        else if (width > 5) mWidth = 7;
+        else if (width > 3) mWidth = 5;
+        else if (width > 1) mWidth = 3;
+        else mWidth = 1;
+        mDepth = Zero;
+        break;
+
     case CornerInnerSW:
     case CornerInnerNW:
     case CornerInnerNE:
@@ -886,6 +986,38 @@ void RoofObject::setWidth(int width)
             break;
         }
         break;
+
+    case CornerSlope30InnerSW:
+    case CornerSlope30InnerNW:
+    case CornerSlope30InnerNE:
+    case CornerSlope30InnerSE:
+    case CornerSlope30OuterSW:
+    case CornerSlope30OuterNW:
+    case CornerSlope30OuterNE:
+    case CornerSlope30OuterSE:
+        mWidth = qBound(1, width, 6);
+        switch (mWidth) {
+        case 1:
+            mDepth = Point5;
+            break;
+        case 2:
+            mDepth = One;
+            break;
+        case 3:
+            mDepth = OnePoint5;
+            break;
+        case 4:
+            mDepth = Two;
+            break;
+        case 5:
+            mDepth = TwoPoint5;
+            break;
+        case 6:
+            mDepth = Three;
+            break;
+        }
+        break;
+
     default:
         break;
     }
@@ -983,6 +1115,45 @@ void RoofObject::setHeight(int height)
         mDepth = Zero;
         break;
 
+    case Slope30W:
+    case Slope30E:
+        mHeight = height;
+        mDepth = Zero;
+        break;
+    case Slope30N:
+    case Slope30S:
+        mHeight = qBound(1, height, 6);
+        mDepth = Zero;
+        break;
+    case Peak30WE:
+    case Peak30Quad:
+        if (height > 9) mHeight = 11;
+        else if (height > 7) mHeight = 9;
+        else if (height > 5) mHeight = 7;
+        else if (height > 3) mHeight = 5;
+        else if (height > 1) mHeight = 3;
+        else mHeight = 1;
+        mDepth = Zero;
+        break;
+    case Peak30NS:
+        mHeight = height;
+        mDepth = Zero;
+        break;
+    case Dormer30W:
+    case Dormer30E:
+        if (height > 9) mHeight = std::max(height, 11);
+        else if (height > 7) mHeight = 9;
+        else if (height > 5) mHeight = 7;
+        else if (height > 3) mHeight = 5;
+        else if (height > 1) mHeight = 3;
+        else mHeight = 1;
+        mDepth = Zero;
+        break;
+    case Dormer30N:
+    case Dormer30S:
+        mHeight = height;
+        break;
+
     case CornerInnerSW:
     case CornerInnerNW:
     case CornerInnerNE:
@@ -1004,6 +1175,38 @@ void RoofObject::setHeight(int height)
             break;
         }
         break;
+
+    case CornerSlope30InnerSW:
+    case CornerSlope30InnerNW:
+    case CornerSlope30InnerNE:
+    case CornerSlope30InnerSE:
+    case CornerSlope30OuterSW:
+    case CornerSlope30OuterNW:
+    case CornerSlope30OuterNE:
+    case CornerSlope30OuterSE:
+        mHeight = qBound(1, height, 6);
+        switch (mHeight) {
+        case 1:
+            mDepth = Point5;
+            break;
+        case 2:
+            mDepth = One;
+            break;
+        case 3:
+            mDepth = OnePoint5;
+            break;
+        case 4:
+            mDepth = Two;
+            break;
+        case 5:
+            mDepth = TwoPoint5;
+            break;
+        case 6:
+            mDepth = Three;
+            break;
+        }
+        break;
+
     default:
         break;
     }
@@ -1012,8 +1215,20 @@ void RoofObject::setHeight(int height)
 void RoofObject::resize(int width, int height, bool halfDepth)
 {
     mHalfDepth = halfDepth;
-    if (isCorner()) {
-        height = width = qMax(width, height);
+    if (isCorner() || (mType == Peak30Quad)) {
+        height = width = std::max(width, height);
+    }
+    if (mType == Dormer30W || mType == Dormer30E) {
+        setHeight(height);
+        width = std::max(width, std::min(mHeight / 2, 6));
+        setWidth(width);
+        return;
+    }
+    if (mType == Dormer30N || mType == Dormer30S) {
+        setWidth(width);
+        height = std::max(height, std::min(mWidth / 2, 6));
+        setHeight(height);
+        return;
     }
     setWidth(width);
     setHeight(height);
@@ -1269,6 +1484,15 @@ void RoofObject::setDefaultCaps()
     case ShallowSlopeN: mCappedS = false; break;
     case ShallowSlopeE: mCappedW = false; break;
     case ShallowSlopeS: mCappedN = false; break;
+    case Slope30W: mCappedE = false; break;
+    case Slope30N: mCappedS = false; break;
+    case Slope30E: mCappedW = false; break;
+    case Slope30S: mCappedN = false; break;
+    case Peak30WE: mCappedN = mCappedS = false; break;
+    case Peak30NS: mCappedW = mCappedE = false; break;
+    case Peak30Quad:
+        mCappedW = mCappedN = mCappedE = mCappedS = false;
+        break;
     case CornerInnerSW:
     case CornerInnerNW:
     case CornerInnerNE:
@@ -1279,6 +1503,18 @@ void RoofObject::setDefaultCaps()
     case CornerOuterNW:
     case CornerOuterNE:
     case CornerOuterSE:
+        mCappedW = mCappedN = mCappedE = mCappedS = false;
+        break;
+    case CornerSlope30InnerSW:
+    case CornerSlope30InnerNW:
+    case CornerSlope30InnerNE:
+    case CornerSlope30InnerSE:
+        mCappedW = mCappedN = mCappedE = mCappedS = false;
+        break;
+    case CornerSlope30OuterSW:
+    case CornerSlope30OuterNW:
+    case CornerSlope30OuterNE:
+    case CornerSlope30OuterSE:
         mCappedW = mCappedN = mCappedE = mCappedS = false;
         break;
     default:
@@ -1300,12 +1536,31 @@ int RoofObject::getOffset(RoofObject::RoofTile tile) const
         BTC_RoofSlopes::ShallowSlopeN1, BTC_RoofSlopes::ShallowSlopeN2,
         BTC_RoofSlopes::ShallowSlopeS1, BTC_RoofSlopes::ShallowSlopeS2,
 
+        BTC_RoofSlopes::Slope30S1, BTC_RoofSlopes::Slope30S2, BTC_RoofSlopes::Slope30S3, BTC_RoofSlopes::Slope30S4, BTC_RoofSlopes::Slope30S5, BTC_RoofSlopes::Slope30S6,
+        BTC_RoofSlopes::Slope30E1, BTC_RoofSlopes::Slope30E2, BTC_RoofSlopes::Slope30E3, BTC_RoofSlopes::Slope30E4, BTC_RoofSlopes::Slope30E5, BTC_RoofSlopes::Slope30E6,
+        BTC_RoofSlopes::Slope30W1, BTC_RoofSlopes::Slope30W2, BTC_RoofSlopes::Slope30W3, BTC_RoofSlopes::Slope30W4, BTC_RoofSlopes::Slope30W5, BTC_RoofSlopes::Slope30W6,
+        BTC_RoofSlopes::Slope30N1, BTC_RoofSlopes::Slope30N2, BTC_RoofSlopes::Slope30N3, BTC_RoofSlopes::Slope30N4, BTC_RoofSlopes::Slope30N5, BTC_RoofSlopes::Slope30N6,
+
+        BTC_RoofSlopes::Peak30NS1, BTC_RoofSlopes::Peak30NS2, BTC_RoofSlopes::Peak30NS3, BTC_RoofSlopes::Peak30NS4, BTC_RoofSlopes::Peak30NS5, BTC_RoofSlopes::Peak30NS6,
+        BTC_RoofSlopes::Peak30WE1, BTC_RoofSlopes::Peak30WE2, BTC_RoofSlopes::Peak30WE3, BTC_RoofSlopes::Peak30WE4, BTC_RoofSlopes::Peak30WE5, BTC_RoofSlopes::Peak30WE6,
+        BTC_RoofSlopes::Peak30Quad1, BTC_RoofSlopes::Peak30Quad2, BTC_RoofSlopes::Peak30Quad3, BTC_RoofSlopes::Peak30Quad4, BTC_RoofSlopes::Peak30Quad5, BTC_RoofSlopes::Peak30Quad6,
+
         BTC_RoofSlopes::Inner1, BTC_RoofSlopes::Inner2, BTC_RoofSlopes::Inner3,
         BTC_RoofSlopes::Outer1, BTC_RoofSlopes::Outer2, BTC_RoofSlopes::Outer3,
         BTC_RoofSlopes::InnerPt5, BTC_RoofSlopes::InnerOnePt5, BTC_RoofSlopes::InnerTwoPt5,
         BTC_RoofSlopes::OuterPt5, BTC_RoofSlopes::OuterOnePt5, BTC_RoofSlopes::OuterTwoPt5,
         BTC_RoofSlopes::CornerSW1, BTC_RoofSlopes::CornerSW2, BTC_RoofSlopes::CornerSW3,
         BTC_RoofSlopes::CornerNE1, BTC_RoofSlopes::CornerNE2, BTC_RoofSlopes::CornerNE3,
+
+        BTC_RoofSlopes::InnerSlope30SE1, BTC_RoofSlopes::InnerSlope30SE2, BTC_RoofSlopes::InnerSlope30SE3, BTC_RoofSlopes::InnerSlope30SE4, BTC_RoofSlopes::InnerSlope30SE5, BTC_RoofSlopes::InnerSlope30SE6,
+        BTC_RoofSlopes::InnerSlope30NE1, BTC_RoofSlopes::InnerSlope30NE2, BTC_RoofSlopes::InnerSlope30NE3, BTC_RoofSlopes::InnerSlope30NE4, BTC_RoofSlopes::InnerSlope30NE5, BTC_RoofSlopes::InnerSlope30NE6,
+        BTC_RoofSlopes::InnerSlope30NW1, BTC_RoofSlopes::InnerSlope30NW2, BTC_RoofSlopes::InnerSlope30NW3, BTC_RoofSlopes::InnerSlope30NW4, BTC_RoofSlopes::InnerSlope30NW5, BTC_RoofSlopes::InnerSlope30NW6,
+        BTC_RoofSlopes::InnerSlope30SW1, BTC_RoofSlopes::InnerSlope30SW2, BTC_RoofSlopes::InnerSlope30SW3, BTC_RoofSlopes::InnerSlope30SW4, BTC_RoofSlopes::InnerSlope30SW5, BTC_RoofSlopes::InnerSlope30SW6,
+
+        BTC_RoofSlopes::OuterSlope30SE1, BTC_RoofSlopes::OuterSlope30SE2, BTC_RoofSlopes::OuterSlope30SE3, BTC_RoofSlopes::OuterSlope30SE4, BTC_RoofSlopes::OuterSlope30SE5, BTC_RoofSlopes::OuterSlope30SE6,
+        BTC_RoofSlopes::OuterSlope30NE1, BTC_RoofSlopes::OuterSlope30NE2, BTC_RoofSlopes::OuterSlope30NE3, BTC_RoofSlopes::OuterSlope30NE4, BTC_RoofSlopes::OuterSlope30NE5, BTC_RoofSlopes::OuterSlope30NE6,
+        BTC_RoofSlopes::OuterSlope30NW1, BTC_RoofSlopes::OuterSlope30NW2, BTC_RoofSlopes::OuterSlope30NW3, BTC_RoofSlopes::OuterSlope30NW4, BTC_RoofSlopes::OuterSlope30NW5, BTC_RoofSlopes::OuterSlope30NW6,
+        BTC_RoofSlopes::OuterSlope30SW1, BTC_RoofSlopes::OuterSlope30SW2, BTC_RoofSlopes::OuterSlope30SW3, BTC_RoofSlopes::OuterSlope30SW4, BTC_RoofSlopes::OuterSlope30SW5, BTC_RoofSlopes::OuterSlope30SW6,
     };
 
     static const BTC_RoofCaps::TileEnum mapCap[] = {
@@ -1318,10 +1573,18 @@ int RoofObject::getOffset(RoofObject::RoofTile tile) const
         BTC_RoofCaps::PeakTwoPt5S, BTC_RoofCaps::PeakTwoPt5E,
         BTC_RoofCaps::CapGapS1, BTC_RoofCaps::CapGapS2, BTC_RoofCaps::CapGapS3,
         BTC_RoofCaps::CapGapE1, BTC_RoofCaps::CapGapE2, BTC_RoofCaps::CapGapE3,
+
         BTC_RoofCaps::CapShallowRiseS1, BTC_RoofCaps::CapShallowRiseS2,
         BTC_RoofCaps::CapShallowFallS1, BTC_RoofCaps::CapShallowFallS2,
         BTC_RoofCaps::CapShallowRiseE1, BTC_RoofCaps::CapShallowRiseE2,
-        BTC_RoofCaps::CapShallowFallE1, BTC_RoofCaps::CapShallowFallE2
+        BTC_RoofCaps::CapShallowFallE1, BTC_RoofCaps::CapShallowFallE2,
+
+        BTC_RoofCaps::CapSlope30RiseE1, BTC_RoofCaps::CapSlope30RiseE2, BTC_RoofCaps::CapSlope30RiseE3, BTC_RoofCaps::CapSlope30RiseE4, BTC_RoofCaps::CapSlope30RiseE5, BTC_RoofCaps::CapSlope30RiseE6,
+        BTC_RoofCaps::CapSlope30FallE1, BTC_RoofCaps::CapSlope30FallE2, BTC_RoofCaps::CapSlope30FallE3, BTC_RoofCaps::CapSlope30FallE4, BTC_RoofCaps::CapSlope30FallE5, BTC_RoofCaps::CapSlope30FallE6,
+        BTC_RoofCaps::CapSlope30RiseS1, BTC_RoofCaps::CapSlope30RiseS2, BTC_RoofCaps::CapSlope30RiseS3, BTC_RoofCaps::CapSlope30RiseS4, BTC_RoofCaps::CapSlope30RiseS5, BTC_RoofCaps::CapSlope30RiseS6,
+        BTC_RoofCaps::CapSlope30FallS1, BTC_RoofCaps::CapSlope30FallS2, BTC_RoofCaps::CapSlope30FallS3, BTC_RoofCaps::CapSlope30FallS4, BTC_RoofCaps::CapSlope30FallS5, BTC_RoofCaps::CapSlope30FallS6,
+        BTC_RoofCaps::CapPeak30E1, BTC_RoofCaps::CapPeak30E2, BTC_RoofCaps::CapPeak30E3, BTC_RoofCaps::CapPeak30E4, BTC_RoofCaps::CapPeak30E5, BTC_RoofCaps::CapPeak30E6,
+        BTC_RoofCaps::CapPeak30S1, BTC_RoofCaps::CapPeak30S2, BTC_RoofCaps::CapPeak30S3, BTC_RoofCaps::CapPeak30S4, BTC_RoofCaps::CapPeak30S5, BTC_RoofCaps::CapPeak30S6,
     };
 
     if (tile >= CapRiseE1) {
@@ -1535,77 +1798,103 @@ QRect RoofObject::flatTop()
         return QRect(r.left() + 3, r.top(), r.width() - 6, r.height());
     return QRect();
 }
-#if 0
-QRect RoofObject::shallowWestEdge()
-{
-    QRect r = bounds();
-    if (mType == ShallowSlopeW)
-        return QRect(r.left(), r.top(),
-                     actualWidth(), r.height());
-    if (mType == ShallowPeakNS) {
-        return QRect(r.left(), r.top(),
-                     r.width() / 2, r.height());
-    }
-    return QRect();
-}
 
-QRect RoofObject::shallowEastEdge()
+class RoofTiler
 {
-    QRect r = bounds();
-    if (mType == ShallowSlopeE)
-        return QRect(r.left(), r.top(),
-                     actualWidth(), r.height());
-    if (mType == ShallowPeakNS) {
-        return QRect(r.left() + r.width() / 2, r.top(),
-                     r.width() / 2, r.height());
+public:
+    RoofTiler(QVector<RoofObject::RoofTile> &tiles, int tilesW, int tilesH)
+        : tiles(tiles)
+        , tilesW(tilesW)
+        , tilesH(tilesH)
+    {
     }
-    return QRect();
-}
 
-QRect RoofObject::shallowNorthEdge()
-{
-    QRect r = bounds();
-    if (mType == ShallowSlopeN)
-        return QRect(r.left(), r.top(),
-                     r.width(), actualHeight());
-    if (mType == ShallowPeakWE) {
-        return QRect(r.left(), r.top(),
-                     r.width(), r.height() / 2);
+    void tile(int x, int y, RoofObject::RoofTile roofTile)
+    {
+        if (x < 0 || x >= tilesW || y < 0 || y >= tilesH) {
+            return;
+        }
+        tiles[x + y * tilesW] = roofTile;
     }
-    return QRect();
-}
 
-QRect RoofObject::shallowSouthEdge()
-{
-    QRect r = bounds();
-    if (mType == ShallowSlopeS)
-        return QRect(r.left(), r.top(),
-                     r.width(), actualHeight());
-    if (mType == ShallowPeakWE) {
-        return QRect(r.left(), r.top() + r.height() / 2,
-                     r.width(), r.height() / 2);
+    void row(int x, int y, int span, RoofObject::RoofTile roofTile)
+    {
+        for (int dx = 0; dx < span; dx++) {
+            tile(x + dx, y, roofTile);
+        }
     }
-    return QRect();
-}
 
-QRect RoofObject::tileRect(RoofObject::RoofTile tile, bool alt)
-{
-    QRect r = bounds();
-    switch (tile) {
-    case ShallowSlopeW1: return shallowWestEdge() & QRect(r.x(), r.y(), 1, r.height());
-    case ShallowSlopeW2: return shallowWestEdge() & QRect(r.x() + 1, r.y(), 1, r.height());
-    case ShallowSlopeE1: return shallowEastEdge() & QRect(r.right(), r.y(), 1, r.height());
-    case ShallowSlopeE2: return shallowEastEdge() & QRect(r.right() - 1, r.y(), 1, r.height());
-    case ShallowSlopeN1: return shallowNorthEdge() & QRect(r.x(), r.y(), r.width(), 1);
-    case ShallowSlopeN2: return shallowNorthEdge() & QRect(r.x(), r.y() + 1, r.width(), 1);
-    case ShallowSlopeS1: return shallowSouthEdge() & QRect(r.x(), r.bottom(), r.width(), 1);
-    case ShallowSlopeS2: return shallowSouthEdge() & QRect(r.x(), r.bottom() - 1, r.width(), 1);
-    default:
-        break;
+    void column(int x, int y, int span, RoofObject::RoofTile roofTile)
+    {
+        for (int dy = 0; dy < span; dy++) {
+            tile(x, y + dy, roofTile);
+        }
     }
-    return QRect();
-}
-#endif
+
+    void rowIncr(int x, int y, int span, RoofObject::RoofTile roofTile)
+    {
+        for (int i = 0; i < span; i++) {
+            tile(x + i, y, static_cast<RoofObject::RoofTile>(roofTile + i));
+        }
+    }
+
+    void rowDecr(int x, int y, int span, RoofObject::RoofTile roofTile)
+    {
+        for (int i = 0; i < span; i++) {
+            tile(x - i, y, static_cast<RoofObject::RoofTile>(roofTile + i));
+        }
+    }
+
+    void columnIncr(int x, int y, int span, RoofObject::RoofTile roofTile)
+    {
+        for (int i = 0; i < span; i++) {
+            tile(x, y + i, static_cast<RoofObject::RoofTile>(roofTile + i));
+        }
+    }
+
+    void columnDecr(int x, int y, int span, RoofObject::RoofTile roofTile)
+    {
+        for (int i = 0; i < span; i++) {
+            tile(x, y - i, static_cast<RoofObject::RoofTile>(roofTile + i));
+        }
+    }
+
+    void fallColumn(int x, int y, int span)
+    {
+
+    }
+
+    QVector<RoofObject::RoofTile> &tiles;
+    int tilesW;
+    int tilesH;
+};
+
+class QuadRoofTiler : public RoofTiler
+{
+public:
+    QuadRoofTiler(QVector<RoofObject::RoofTile> &tiles, int tilesWH)
+        : RoofTiler(tiles, tilesWH, tilesWH)
+    {
+    }
+
+    void ring(int x, int y, int wh,
+              RoofObject::RoofTile cornerNW, RoofObject::RoofTile cornerNE, RoofObject::RoofTile cornerSE, RoofObject::RoofTile cornerSW,
+              RoofObject::RoofTile slopeW, RoofObject::RoofTile slopeN, RoofObject::RoofTile slopeE, RoofObject::RoofTile slopeS)
+    {
+        tile(x, y, cornerNW);
+        tile(x + wh - 1, y, cornerNE);
+        tile(x + wh - 1, y + wh - 1, cornerSE);
+        tile(x, y + wh - 1, cornerSW);
+        for (int dx = 1; dx < wh - 1; dx++) {
+            tile(x + dx, y, slopeN);
+            tile(x + dx, y + wh - 1, slopeS);
+        }
+        for (int dy = 1; dy < wh - 1; dy++) {
+            tile(x, y + dy, slopeW);
+            tile(x + wh - 1, y + dy, slopeE);
+        }
+    }
+};
 
 QVector<RoofObject::RoofTile> RoofObject::slopeTiles(QRect &b)
 {
@@ -1740,7 +2029,7 @@ QVector<RoofObject::RoofTile> RoofObject::slopeTiles(QRect &b)
             for (int x = 0; x < mWidth; x++)
                 ret += pat[y];
         break;
-     case ShallowPeakWE:
+    case ShallowPeakWE:
         pat << ShallowSlopeN1;
         if (mHeight > 2) pat << ShallowSlopeN2 << ShallowSlopeS2;
         pat << ShallowSlopeS1;
@@ -1748,6 +2037,415 @@ QVector<RoofObject::RoofTile> RoofObject::slopeTiles(QRect &b)
             for (int x = 0; x < mWidth; x++)
                 ret += pat[y];
         break;
+
+    case Slope30W:
+        pat << Slope30W1;
+        if (mWidth > 1) pat << Slope30W2;
+        if (mWidth > 2) pat << Slope30W3;
+        if (mWidth > 3) pat << Slope30W4;
+        if (mWidth > 4) pat << Slope30W5;
+        if (mWidth > 5) pat << Slope30W6;
+        for (int y = 0; y < mHeight; y++) {
+            ret += pat;
+        }
+        break;
+    case Slope30N:
+        pat << Slope30N1;
+        if (mHeight > 1) pat << Slope30N2;
+        if (mHeight > 2) pat << Slope30N3;
+        if (mHeight > 3) pat << Slope30N4;
+        if (mHeight > 4) pat << Slope30N5;
+        if (mHeight > 5) pat << Slope30N6;
+        for (int y = 0; y < pat.size(); y++)
+            for (int x = 0; x < mWidth; x++)
+                ret += pat[y];
+        break;
+    case Slope30E:
+        if (mWidth > 5) pat << Slope30E6;
+        if (mWidth > 4) pat << Slope30E5;
+        if (mWidth > 3) pat << Slope30E4;
+        if (mWidth > 2) pat << Slope30E3;
+        if (mWidth > 1) pat << Slope30E2;
+        pat << Slope30E1;
+        for (int y = 0; y < mHeight; y++) {
+            ret += pat;
+        }
+        break;
+    case Slope30S:
+        if (mHeight > 5) pat << Slope30S6;
+        if (mHeight > 4) pat << Slope30S5;
+        if (mHeight > 3) pat << Slope30S4;
+        if (mHeight > 2) pat << Slope30S3;
+        if (mHeight > 1) pat << Slope30S2;
+        pat << Slope30S1;
+        for (int y = 0; y < pat.size(); y++)
+            for (int x = 0; x < mWidth; x++)
+                ret += pat[y];
+        break;
+    case Peak30WE:
+        pat.resize(mHeight);
+        pat[mHeight / 2] = Peak30NS1;
+        if (mHeight >= 3) {
+            pat[0] = Slope30N1;
+            pat[mHeight - 1] = Slope30S1;
+            pat[mHeight / 2] = Peak30NS2;
+        }
+        if (mHeight >= 5) {
+            pat[1] = Slope30N2;
+            pat[mHeight - 2] = Slope30S2;
+            pat[mHeight / 2] = Peak30NS3;
+        }
+        if (mHeight >= 7) {
+            pat[2] = Slope30N3;
+            pat[mHeight - 3] = Slope30S3;
+            pat[mHeight / 2] = Peak30NS4;
+        }
+        if (mHeight >= 9) {
+            pat[3] = Slope30N4;
+            pat[mHeight - 4] = Slope30S4;
+            pat[mHeight / 2] = Peak30NS5;
+        }
+        if (mHeight >= 11) {
+            pat[4] = Slope30N5;
+            pat[mHeight - 5] = Slope30S5;
+            pat[mHeight / 2] = Peak30NS6;
+        }
+        for (int y = 0; y < pat.size(); y++)
+            for (int x = 0; x < mWidth; x++)
+                ret += pat[y];
+        break;
+    case Peak30NS:
+        pat.resize(mWidth);
+        pat[mWidth / 2] = Peak30WE1;
+        if (mWidth >= 3) {
+            pat[0] = Slope30W1;
+            pat[mWidth - 1] = Slope30E1;
+            pat[mWidth / 2] = Peak30WE2;
+        }
+        if (mWidth >= 5) {
+            pat[1] = Slope30W2;
+            pat[mWidth - 2] = Slope30E2;
+            pat[mWidth / 2] = Peak30WE3;
+        }
+        if (mWidth >= 7) {
+            pat[2] = Slope30W3;
+            pat[mWidth - 3] = Slope30E3;
+            pat[mWidth / 2] = Peak30WE4;
+        }
+        if (mWidth >= 9) {
+            pat[3] = Slope30W4;
+            pat[mWidth - 4] = Slope30E4;
+            pat[mWidth / 2] = Peak30WE5;
+        }
+        if (mWidth >= 11) {
+            pat[4] = Slope30W5;
+            pat[mWidth - 5] = Slope30E5;
+            pat[mWidth / 2] = Peak30WE6;
+        }
+        for (int y = 0; y < mHeight; y++)
+            ret += pat;
+        break;
+    case Peak30Quad: {
+        ret.resize(mWidth * mHeight);
+        ret.fill(RoofTile::TileCount);
+        QuadRoofTiler tiler(ret, mWidth);
+        if (mWidth == 1) {
+            tiler.tile(0, 0, Peak30Quad1);
+        }
+        if (mWidth >= 3) {
+            tiler.tile(mWidth / 2, mWidth / 2, Peak30Quad2);
+            tiler.ring(0, 0, mWidth,
+                         OuterSlope30NW1, OuterSlope30NE1, OuterSlope30SE1, OuterSlope30SW1,
+                         Slope30W1, Slope30N1, Slope30E1, Slope30S1);
+        }
+        if (mWidth >= 5) {
+            tiler.tile(mWidth / 2, mWidth / 2, Peak30Quad3);
+            tiler.ring(1, 1, mWidth-2,
+                         OuterSlope30NW2, OuterSlope30NE2, OuterSlope30SE2, OuterSlope30SW2,
+                         Slope30W2, Slope30N2, Slope30E2, Slope30S2);
+        }
+        if (mWidth >= 7) {
+            tiler.tile(mWidth / 2, mWidth / 2, Peak30Quad4);
+            tiler.ring(2, 2, mWidth-4,
+                         OuterSlope30NW3, OuterSlope30NE3, OuterSlope30SE3, OuterSlope30SW3,
+                         Slope30W3, Slope30N3, Slope30E3, Slope30S3);
+        }
+        if (mWidth >= 9) {
+            tiler.tile(mWidth / 2, mWidth / 2, Peak30Quad5);
+            tiler.ring(3, 3, mWidth-6,
+                         OuterSlope30NW4, OuterSlope30NE4, OuterSlope30SE4, OuterSlope30SW4,
+                         Slope30W4, Slope30N4, Slope30E4, Slope30S4);
+        }
+        if (mWidth >= 11) {
+            tiler.tile(mWidth / 2, mWidth / 2, Peak30Quad6);
+            tiler.ring(4, 4, mWidth-8,
+                         OuterSlope30NW5, OuterSlope30NE5, OuterSlope30SE5, OuterSlope30SW5,
+                         Slope30W5, Slope30N5, Slope30E5, Slope30S5);
+        }
+        break;
+    }
+    case Dormer30W: {
+        ret.resize(mWidth * mHeight);
+        ret.fill(RoofTile::TileCount);
+        RoofTiler tiler(ret, mWidth, mHeight);
+        if (mHeight <= 11) {
+            RoofTile peakTile = Peak30NS1;
+            if (mHeight == 11) {
+                peakTile = Peak30NS6;
+            } else if (mHeight == 9) {
+                peakTile = Peak30NS5;
+            } else if (mHeight == 7) {
+                peakTile = Peak30NS4;
+            } else if (mHeight == 5) {
+                peakTile = Peak30NS3;
+            } else if (mHeight == 3) {
+                peakTile = Peak30NS2;
+            } else if (mHeight == 1) {
+                peakTile = Peak30NS1;
+            }
+            tiler.row(0, mHeight / 2, mWidth, peakTile);
+        }
+        int right = mWidth - 1;
+        if (mHeight > 11) {
+            tiler.tile(right, 5, InnerSlope30SE6);
+            tiler.tile(right, mHeight - 6, InnerSlope30NE6);
+            tiler.row(0, 5, right, Slope30N6);
+            tiler.row(0, mHeight - 6, right, Slope30S6);
+            --right;
+        }
+        if (mHeight >= 11) {
+            tiler.tile(right, 4, InnerSlope30SE5);
+            tiler.tile(right, mHeight - 5, InnerSlope30NE5);
+            tiler.row(0, 4, right, Slope30N5);
+            tiler.row(0, mHeight - 5, right, Slope30S5);
+            --right;
+        }
+        if (mHeight >= 9) {
+            tiler.tile(right, 3, InnerSlope30SE4);
+            tiler.tile(right, mHeight - 4, InnerSlope30NE4);
+            tiler.row(0, 3, right, Slope30N4);
+            tiler.row(0, mHeight - 4, right, Slope30S4);
+            --right;
+        }
+        if (mHeight >= 7) {
+            tiler.tile(right, 2, InnerSlope30SE3);
+            tiler.tile(right, mHeight - 3, InnerSlope30NE3);
+            tiler.row(0, 2, right, Slope30N3);
+            tiler.row(0, mHeight - 3, right, Slope30S3);
+            --right;
+        }
+        if (mHeight >= 5) {
+            tiler.tile(right, 1, InnerSlope30SE2);
+            tiler.tile(right, mHeight - 2, InnerSlope30NE2);
+            tiler.row(0, 1, right, Slope30N2);
+            tiler.row(0, mHeight - 2, right, Slope30S2);
+            --right;
+        }
+        if (mHeight >= 3) {
+            tiler.tile(right, 0, InnerSlope30SE1);
+            tiler.tile(right, mHeight - 1, InnerSlope30NE1);
+            tiler.row(0, 0, right, Slope30N1);
+            tiler.row(0, mHeight - 1, right, Slope30S1);
+        }
+        break;
+    }
+    case Dormer30E: {
+        ret.resize(mWidth * mHeight);
+        ret.fill(RoofTile::TileCount);
+        RoofTiler tiler(ret, mWidth, mHeight);
+        if (mHeight <= 11) {
+            RoofTile peakTile = Peak30NS1;
+            if (mHeight == 11) {
+                peakTile = Peak30NS6;
+            } else if (mHeight == 9) {
+                peakTile = Peak30NS5;
+            } else if (mHeight == 7) {
+                peakTile = Peak30NS4;
+            } else if (mHeight == 5) {
+                peakTile = Peak30NS3;
+            } else if (mHeight == 3) {
+                peakTile = Peak30NS2;
+            } else if (mHeight == 1) {
+                peakTile = Peak30NS1;
+            }
+            tiler.row(0, mHeight / 2, mWidth, peakTile);
+        }
+        int left = 0;
+        if (mHeight > 11) {
+            tiler.tile(left, 5, InnerSlope30SW6);
+            tiler.tile(left, mHeight - 6, InnerSlope30NW6);
+            ++left;
+            tiler.row(left, 5, mWidth - left, Slope30N6);
+            tiler.row(left, mHeight - 6, mWidth - left, Slope30S6);
+        }
+        if (mHeight >= 11) {
+            tiler.tile(left, 4, InnerSlope30SW5);
+            tiler.tile(left, mHeight - 5, InnerSlope30NW5);
+            ++left;
+            tiler.row(left, 4, mWidth - left, Slope30N5);
+            tiler.row(left, mHeight - 5, mWidth - left, Slope30S5);
+        }
+        if (mHeight >= 9) {
+            tiler.tile(left, 3, InnerSlope30SW4);
+            tiler.tile(left, mHeight - 4, InnerSlope30NW4);
+            ++left;
+            tiler.row(left, 3, mWidth - left, Slope30N4);
+            tiler.row(left, mHeight - 4, mWidth - left, Slope30S4);
+        }
+        if (mHeight >= 7) {
+            tiler.tile(left, 2, InnerSlope30SW3);
+            tiler.tile(left, mHeight - 3, InnerSlope30NW3);
+            ++left;
+            tiler.row(left, 2, mWidth - left, Slope30N3);
+            tiler.row(left, mHeight - 3, mWidth - left, Slope30S3);
+        }
+        if (mHeight >= 5) {
+            tiler.tile(left, 1, InnerSlope30SW2);
+            tiler.tile(left, mHeight - 2, InnerSlope30NW2);
+            ++left;
+            tiler.row(left, 1, mWidth - left, Slope30N2);
+            tiler.row(left, mHeight - 2, mWidth - left, Slope30S2);
+        }
+        if (mHeight >= 3) {
+            tiler.tile(left, 0, InnerSlope30SW1);
+            tiler.tile(left, mHeight - 1, InnerSlope30NW1);
+            ++left;
+            tiler.row(left, 0, mWidth - left, Slope30N1);
+            tiler.row(left, mHeight - 1, mWidth - left, Slope30S1);
+        }
+        break;
+    }
+    case Dormer30N: {
+        ret.resize(mWidth * mHeight);
+        ret.fill(RoofTile::TileCount);
+        RoofTiler tiler(ret, mWidth, mHeight);
+        if (mWidth <= 11) {
+            RoofTile peakTile = Peak30NS1;
+            if (mWidth == 11) {
+                peakTile = Peak30WE6;
+            } else if (mWidth == 9) {
+                peakTile = Peak30WE5;
+            } else if (mWidth == 7) {
+                peakTile = Peak30WE4;
+            } else if (mWidth == 5) {
+                peakTile = Peak30WE3;
+            } else if (mWidth == 3) {
+                peakTile = Peak30WE2;
+            } else if (mWidth == 1) {
+                peakTile = Peak30WE1;
+            }
+            tiler.column(mWidth / 2, 0, mHeight, peakTile);
+        }
+        int bottom = mHeight - 1;
+        if (mWidth > 11) {
+            tiler.tile(5, bottom, InnerSlope30SE6);
+            tiler.tile(mWidth - 6, bottom, InnerSlope30SW6);
+            tiler.column(5, 0, bottom, Slope30W6);
+            tiler.column(mWidth - 6, 0, bottom, Slope30E6);
+            --bottom;
+        }
+        if (mWidth >= 11) {
+            tiler.tile(4, bottom, InnerSlope30SE5);
+            tiler.tile(mWidth - 5, bottom, InnerSlope30SW5);
+            tiler.column(4, 0, bottom, Slope30W5);
+            tiler.column(mWidth - 5, 0, bottom, Slope30E5);
+            --bottom;
+        }
+        if (mWidth >= 9) {
+            tiler.tile(3, bottom, InnerSlope30SE4);
+            tiler.tile(mWidth - 4, bottom, InnerSlope30SW4);
+            tiler.column(3, 0, bottom, Slope30W4);
+            tiler.column(mWidth - 4, 0, bottom, Slope30E4);
+            --bottom;
+        }
+        if (mWidth >= 7) {
+            tiler.tile(2, bottom, InnerSlope30SE3);
+            tiler.tile(mWidth - 3, bottom, InnerSlope30SW3);
+            tiler.column(2, 0, bottom, Slope30W3);
+            tiler.column(mWidth - 3, 0, bottom, Slope30E3);
+            --bottom;
+        }
+        if (mWidth >= 5) {
+            tiler.tile(1, bottom, InnerSlope30SE2);
+            tiler.tile(mWidth - 2, bottom, InnerSlope30SW2);
+            tiler.column(1, 0, bottom, Slope30W2);
+            tiler.column(mWidth - 2, 0, bottom, Slope30E2);
+            --bottom;
+        }
+        if (mWidth >= 3) {
+            tiler.tile(0, bottom, InnerSlope30SE1);
+            tiler.tile(mWidth - 1, bottom, InnerSlope30SW1);
+            tiler.column(0, 0, bottom, Slope30W1);
+            tiler.column(mWidth - 1, 0, bottom, Slope30E1);
+        }
+        break;
+    }
+    case Dormer30S: {
+        ret.resize(mWidth * mHeight);
+        ret.fill(RoofTile::TileCount);
+        RoofTiler tiler(ret, mWidth, mHeight);
+        if (mWidth <= 11) {
+            RoofTile peakTile = Peak30NS1;
+            if (mWidth == 11) {
+                peakTile = Peak30WE6;
+            } else if (mWidth == 9) {
+                peakTile = Peak30WE5;
+            } else if (mWidth == 7) {
+                peakTile = Peak30WE4;
+            } else if (mWidth == 5) {
+                peakTile = Peak30WE3;
+            } else if (mWidth == 3) {
+                peakTile = Peak30WE2;
+            } else if (mWidth == 1) {
+                peakTile = Peak30WE1;
+            }
+            tiler.column(mWidth / 2, 0, mHeight, peakTile);
+        }
+        int top = 0;
+        if (mWidth > 11) {
+            tiler.tile(5, top, InnerSlope30NE6);
+            tiler.tile(mWidth - 6, top, InnerSlope30NW6);
+            ++top;
+            tiler.column(5, top, mHeight - top, Slope30W6);
+            tiler.column(mWidth - 6, top, mHeight - top, Slope30E6);
+        }
+        if (mWidth >= 11) {
+            tiler.tile(4, top, InnerSlope30NE5);
+            tiler.tile(mWidth - 5, top, InnerSlope30NW5);
+            ++top;
+            tiler.column(4, top, mHeight - top, Slope30W5);
+            tiler.column(mWidth - 5, top, mHeight - top, Slope30E5);
+        }
+        if (mWidth >= 9) {
+            tiler.tile(3, top, InnerSlope30NE4);
+            tiler.tile(mWidth - 4, top, InnerSlope30NW4);
+            ++top;
+            tiler.column(3, top, mHeight - top, Slope30W4);
+            tiler.column(mWidth - 4, top, mHeight - top, Slope30E4);
+        }
+        if (mWidth >= 7) {
+            tiler.tile(2, top, InnerSlope30NE3);
+            tiler.tile(mWidth - 3, top, InnerSlope30NW3);
+            ++top;
+            tiler.column(2, top, mHeight - top, Slope30W3);
+            tiler.column(mWidth - 3, top, mHeight - top, Slope30E3);
+        }
+        if (mWidth >= 5) {
+            tiler.tile(1, top, InnerSlope30NE2);
+            tiler.tile(mWidth - 2, top, InnerSlope30NW2);
+            ++top;
+            tiler.column(1, top, mHeight - top, Slope30W2);
+            tiler.column(mWidth - 2, top, mHeight - top, Slope30E2);
+        }
+        if (mWidth >= 3) {
+            tiler.tile(0, top, InnerSlope30NE1);
+            tiler.tile(mWidth - 1, top, InnerSlope30NW1);
+            ++top;
+            tiler.column(0, top, mHeight - top, Slope30W1);
+            tiler.column(mWidth - 1, top, mHeight - top, Slope30E1);
+        }
+        break;
+    }
     default:
         break;
     }
@@ -1825,6 +2523,88 @@ QVector<RoofObject::RoofTile> RoofObject::westCapTiles(QRect &b)
         ret << CapShallowFallE1;
         if (mHeight > 2) ret << CapShallowFallE2 << CapShallowRiseE2;
         ret << CapShallowRiseE1;
+    case Slope30W:
+        break;
+    case Slope30N:
+    case CornerSlope30InnerSE:
+    case CornerSlope30OuterNE:
+        ret += CapSlope30FallE1;
+        if (mHeight > 1) ret += CapSlope30FallE2;
+        if (mHeight > 2) ret += CapSlope30FallE3;
+        if (mHeight > 3) ret += CapSlope30FallE4;
+        if (mHeight > 4) ret += CapSlope30FallE5;
+        if (mHeight > 5) ret += CapSlope30FallE6;
+        break;
+    case Slope30E:
+        break;
+    case Slope30S:
+    case CornerSlope30InnerNE:
+    case CornerSlope30OuterSE:
+        if (mHeight > 5) ret += CapSlope30RiseE6;
+        if (mHeight > 4) ret += CapSlope30RiseE5;
+        if (mHeight > 3) ret += CapSlope30RiseE4;
+        if (mHeight > 2) ret += CapSlope30RiseE3;
+        if (mHeight > 1) ret += CapSlope30RiseE2;
+        ret += CapSlope30RiseE1;
+        break;
+    case Peak30NS:
+        break;
+    case Peak30WE:
+        ret.resize(mHeight);
+        ret[mHeight / 2] = CapPeak30E1;
+        if (mHeight >= 3) {
+            ret[0] = CapSlope30FallE1;
+            ret[mHeight - 1] = CapSlope30RiseE1;
+            ret[mHeight / 2] = CapPeak30E2;
+        }
+        if (mHeight >= 5) {
+            ret[1] = CapSlope30FallE2;
+            ret[mHeight - 2] = CapSlope30RiseE2;
+            ret[mHeight / 2] = CapPeak30E3;
+        }
+        if (mHeight >= 7) {
+            ret[2] = CapSlope30FallE3;
+            ret[mHeight - 3] = CapSlope30RiseE3;
+            ret[mHeight / 2] = CapPeak30E4;
+        }
+        if (mHeight >= 9) {
+            ret[3] = CapSlope30FallE4;
+            ret[mHeight - 4] = CapSlope30RiseE4;
+            ret[mHeight / 2] = CapPeak30E5;
+        }
+        if (mHeight >= 11) {
+            ret[4] = CapSlope30FallE5;
+            ret[mHeight - 5] = CapSlope30RiseE5;
+            ret[mHeight / 2] = CapPeak30E6;
+        }
+        break;
+    case Dormer30W: {
+        ret.resize(mHeight);
+        ret.fill(RoofTile::TileCount);
+        RoofTiler tiler(ret, 1, mHeight);
+        tiler.columnIncr(0, 0, std::min(mHeight / 2, 6), CapSlope30FallE1);
+        tiler.columnDecr(0, mHeight - 1, std::min(mHeight / 2, 6), CapSlope30RiseE1);
+        RoofTile peakTile = TileCount;
+        if (mHeight == 1) {
+            peakTile = CapPeak30E1;
+        } else if (mHeight == 3) {
+            peakTile = CapPeak30E2;
+        } else if (mHeight == 5) {
+            peakTile = CapPeak30E3;
+        } else if (mHeight == 7) {
+            peakTile = CapPeak30E4;
+        } else if (mHeight == 9) {
+            peakTile = CapPeak30E5;
+        } else if (mHeight == 11) {
+            peakTile = CapPeak30E6;
+        }
+        if (mHeight > 12) {
+            tiler.column(0, 6, mHeight - 12, CapGapE3);
+        } else if (mHeight < 12) {
+            ret[mHeight / 2] = peakTile;
+        }
+        break;
+    }
     case FlatTop:
     case CornerInnerSW:
     case CornerInnerNW: {
@@ -1914,6 +2694,86 @@ QVector<RoofObject::RoofTile> RoofObject::eastCapTiles(QRect &b)
         if (mHeight > 2) ret << CapShallowFallE2 << CapShallowRiseE2;
         ret += CapShallowRiseE1;
         break;
+    case Slope30W:
+        break;
+    case Slope30N:
+    case CornerSlope30InnerSW:
+    case CornerSlope30OuterNW:
+        ret += CapSlope30FallE1;
+        if (mHeight > 1) ret += CapSlope30FallE2;
+        if (mHeight > 2) ret += CapSlope30FallE3;
+        if (mHeight > 3) ret += CapSlope30FallE4;
+        if (mHeight > 4) ret += CapSlope30FallE5;
+        if (mHeight > 5) ret += CapSlope30FallE6;
+        break;
+    case Slope30E:
+        break;
+    case Slope30S:
+    case CornerSlope30InnerNW:
+    case CornerSlope30OuterSW:
+        if (mHeight > 5) ret += CapSlope30RiseE6;
+        if (mHeight > 4) ret += CapSlope30RiseE5;
+        if (mHeight > 3) ret += CapSlope30RiseE4;
+        if (mHeight > 2) ret += CapSlope30RiseE3;
+        if (mHeight > 1) ret += CapSlope30RiseE2;
+        ret += CapSlope30RiseE1;
+        break;
+    case Peak30WE:
+        ret.resize(mHeight);
+        ret[mHeight / 2] = CapPeak30E1;
+        if (mHeight >= 3) {
+            ret[0] = CapSlope30FallE1;
+            ret[mHeight - 1] = CapSlope30RiseE1;
+            ret[mHeight / 2] = CapPeak30E2;
+        }
+        if (mHeight >= 5) {
+            ret[1] = CapSlope30FallE2;
+            ret[mHeight - 2] = CapSlope30RiseE2;
+            ret[mHeight / 2] = CapPeak30E3;
+        }
+        if (mHeight >= 7) {
+            ret[2] = CapSlope30FallE3;
+            ret[mHeight - 3] = CapSlope30RiseE3;
+            ret[mHeight / 2] = CapPeak30E4;
+        }
+        if (mHeight >= 9) {
+            ret[3] = CapSlope30FallE4;
+            ret[mHeight - 4] = CapSlope30RiseE4;
+            ret[mHeight / 2] = CapPeak30E5;
+        }
+        if (mHeight >= 11) {
+            ret[4] = CapSlope30FallE5;
+            ret[mHeight - 5] = CapSlope30RiseE5;
+            ret[mHeight / 2] = CapPeak30E6;
+        }
+        break;
+    case Dormer30E: {
+        ret.resize(mHeight);
+        ret.fill(TileCount);
+        RoofTiler tiler(ret, 1, mHeight);
+        tiler.columnIncr(0, 0, std::min(mHeight / 2, 6), CapSlope30FallE1);
+        tiler.columnDecr(0, mHeight - 1, std::min(mHeight / 2, 6), CapSlope30RiseE1);
+        RoofTile peakTile = TileCount;
+        if (mHeight == 1) {
+            peakTile = CapPeak30E1;
+        } else if (mHeight == 3) {
+            peakTile = CapPeak30E2;
+        } else if (mHeight == 5) {
+            peakTile = CapPeak30E3;
+        } else if (mHeight == 7) {
+            peakTile = CapPeak30E4;
+        } else if (mHeight == 9) {
+            peakTile = CapPeak30E5;
+        } else if (mHeight == 11) {
+            peakTile = CapPeak30E6;
+        }
+        if (mHeight > 12) {
+            tiler.column(0, 6, mHeight - 12, CapGapE3);
+        } else if (mHeight < 12) {
+            ret[mHeight / 2] = peakTile;
+        }
+        break;
+    }
     case FlatTop:
     case CornerInnerSE:
     case CornerInnerNE: {
@@ -2003,6 +2863,86 @@ QVector<RoofObject::RoofTile> RoofObject::northCapTiles(QRect &b)
         if (mWidth > 2) ret << CapShallowRiseS2 << CapShallowFallS2;
         ret += CapShallowFallS1;
         break;
+    case Slope30W:
+    case CornerSlope30InnerSE:
+    case CornerSlope30OuterSW:
+        ret += CapSlope30RiseS1;
+        if (mWidth > 1) ret += CapSlope30RiseS2;
+        if (mWidth > 2) ret += CapSlope30RiseS3;
+        if (mWidth > 3) ret += CapSlope30RiseS4;
+        if (mWidth > 4) ret += CapSlope30RiseS5;
+        if (mWidth > 5) ret += CapSlope30RiseS6;
+        break;
+    case Slope30N:
+        break;
+    case Slope30E:
+    case CornerSlope30InnerSW:
+    case CornerSlope30OuterSE:
+        if (mWidth > 5) ret += CapSlope30FallS6;
+        if (mWidth > 4) ret += CapSlope30FallS5;
+        if (mWidth > 3) ret += CapSlope30FallS4;
+        if (mWidth > 2) ret += CapSlope30FallS3;
+        if (mWidth > 1) ret += CapSlope30FallS2;
+        ret += CapSlope30FallS1;
+        break;
+    case Slope30S:
+        break;
+    case Peak30NS:
+        ret.resize(mWidth);
+        ret[mWidth / 2] = CapPeak30S1;
+        if (mWidth >= 3) {
+            ret[0] = CapSlope30RiseS1;
+            ret[mWidth - 1] = CapSlope30FallS1;
+            ret[mWidth / 2] = CapPeak30S2;
+        }
+        if (mWidth >= 5) {
+            ret[1] = CapSlope30RiseS2;
+            ret[mWidth - 2] = CapSlope30FallS2;
+            ret[mWidth / 2] = CapPeak30S3;
+        }
+        if (mWidth >= 7) {
+            ret[2] = CapSlope30RiseS3;
+            ret[mWidth - 3] = CapSlope30FallS3;
+            ret[mWidth / 2] = CapPeak30S4;
+        }
+        if (mWidth >= 9) {
+            ret[3] = CapSlope30RiseS4;
+            ret[mWidth - 4] = CapSlope30FallS4;
+            ret[mWidth / 2] = CapPeak30S5;
+        }
+        if (mWidth >= 11) {
+            ret[4] = CapSlope30RiseS5;
+            ret[mWidth - 5] = CapSlope30FallS5;
+            ret[mWidth / 2] = CapPeak30S6;
+        }
+        break;
+    case Dormer30N: {
+        ret.resize(mWidth);
+        ret.fill(RoofTile::TileCount);
+        RoofTiler tiler(ret, mWidth, 1);
+        tiler.rowIncr(0, 0, std::min(mWidth / 2, 6), CapSlope30RiseS1);
+        tiler.rowDecr(mWidth - 1, 0, std::min(mWidth / 2, 6), CapSlope30FallS1);
+        RoofTile peakTile = TileCount;
+        if (mWidth == 1) {
+            peakTile = CapPeak30S1;
+        } else if (mWidth == 3) {
+            peakTile = CapPeak30S2;
+        } else if (mWidth == 5) {
+            peakTile = CapPeak30S3;
+        } else if (mWidth == 7) {
+            peakTile = CapPeak30S4;
+        } else if (mWidth == 9) {
+            peakTile = CapPeak30S5;
+        } else if (mWidth == 11) {
+            peakTile = CapPeak30S6;
+        }
+        if (mWidth > 12) {
+            tiler.row(6, 0, mWidth - 12, CapGapS3);
+        } else if (mWidth < 12) {
+            ret[mWidth / 2] = peakTile;
+        }
+        break;
+    }
     case FlatTop:
     case CornerInnerNW:
     case CornerInnerNE: {
@@ -2092,6 +3032,86 @@ QVector<RoofObject::RoofTile> RoofObject::southCapTiles(QRect &b)
         if (mWidth > 2) ret << CapShallowRiseS2 << CapShallowFallS2;
         ret += CapShallowFallS1;
         break;
+    case Slope30W:
+    case CornerSlope30InnerNE:
+    case CornerSlope30OuterNW:
+        ret += CapSlope30RiseS1;
+        if (mWidth > 1) ret += CapSlope30RiseS2;
+        if (mWidth > 2) ret += CapSlope30RiseS3;
+        if (mWidth > 3) ret += CapSlope30RiseS4;
+        if (mWidth > 4) ret += CapSlope30RiseS5;
+        if (mWidth > 5) ret += CapSlope30RiseS6;
+        break;
+    case Slope30N:
+        break;
+    case Slope30E:
+    case CornerSlope30InnerNW:
+    case CornerSlope30OuterNE:
+        if (mWidth > 5) ret += CapSlope30FallS6;
+        if (mWidth > 4) ret += CapSlope30FallS5;
+        if (mWidth > 3) ret += CapSlope30FallS4;
+        if (mWidth > 2) ret += CapSlope30FallS3;
+        if (mWidth > 1) ret += CapSlope30FallS2;
+        ret += CapSlope30FallS1;
+        break;
+    case Slope30S:
+        break;
+    case Peak30NS:
+        ret.resize(mWidth);
+        ret[mWidth / 2] = CapPeak30S1;
+        if (mWidth >= 3) {
+            ret[0] = CapSlope30RiseS1;
+            ret[mWidth - 1] = CapSlope30FallS1;
+            ret[mWidth / 2] = CapPeak30S2;
+        }
+        if (mWidth >= 5) {
+            ret[1] = CapSlope30RiseS2;
+            ret[mWidth - 2] = CapSlope30FallS2;
+            ret[mWidth / 2] = CapPeak30S3;
+        }
+        if (mWidth >= 7) {
+            ret[2] = CapSlope30RiseS3;
+            ret[mWidth - 3] = CapSlope30FallS3;
+            ret[mWidth / 2] = CapPeak30S4;
+        }
+        if (mWidth >= 9) {
+            ret[3] = CapSlope30RiseS4;
+            ret[mWidth - 4] = CapSlope30FallS4;
+            ret[mWidth / 2] = CapPeak30S5;
+        }
+        if (mWidth >= 11) {
+            ret[4] = CapSlope30RiseS5;
+            ret[mWidth - 5] = CapSlope30FallS5;
+            ret[mWidth / 2] = CapPeak30S6;
+        }
+        break;
+    case Dormer30S: {
+        ret.resize(mWidth);
+        ret.fill(RoofTile::TileCount);
+        RoofTiler tiler(ret, mWidth, 1);
+        tiler.rowIncr(0, 0, std::min(mWidth / 2, 6), CapSlope30RiseS1);
+        tiler.rowDecr(mWidth - 1, 0, std::min(mWidth / 2, 6), CapSlope30FallS1);
+        RoofTile peakTile = TileCount;
+        if (mWidth == 1) {
+            peakTile = CapPeak30S1;
+        } else if (mWidth == 3) {
+            peakTile = CapPeak30S2;
+        } else if (mWidth == 5) {
+            peakTile = CapPeak30S3;
+        } else if (mWidth == 7) {
+            peakTile = CapPeak30S4;
+        } else if (mWidth == 9) {
+            peakTile = CapPeak30S5;
+        } else if (mWidth == 11) {
+            peakTile = CapPeak30S6;
+        }
+        if (mWidth > 12) {
+            tiler.row(6, 0, mWidth - 12, CapGapS3);
+        } else if (mWidth < 12) {
+            ret[mWidth / 2] = peakTile;
+        }
+        break;
+    }
     case FlatTop:
     case CornerInnerSE:
     case CornerInnerSW: {
@@ -2107,6 +3127,25 @@ QVector<RoofObject::RoofTile> RoofObject::southCapTiles(QRect &b)
         break;
     }
     return ret;
+}
+
+static void setCornerTile(QVector<RoofObject::RoofTile> &tiles, int w, int x, int y, RoofObject::RoofTile tile)
+{
+    tiles[x + y * w] = tile;
+}
+
+static void setCornerTileColumn(QVector<RoofObject::RoofTile> &tiles, int w, int x, int y, const QVector<RoofObject::RoofTile> &row)
+{
+    for (int dy = 0; dy < row.size(); dy++) {
+        tiles[x + (y + dy) * w] = row.at(dy);
+    }
+}
+
+static void setCornerTileRow(QVector<RoofObject::RoofTile> &tiles, int w, int x, int y, const QVector<RoofObject::RoofTile> &col)
+{
+    for (int dx = 0; dx < col.size(); dx++) {
+        tiles[(x + dx) + y * w] = col.at(dx);
+    }
 }
 
 QVector<RoofObject::RoofTile> RoofObject::cornerTiles(QRect &b)
@@ -2240,6 +3279,505 @@ QVector<RoofObject::RoofTile> RoofObject::cornerTiles(QRect &b)
             ret << OuterPt5;
         }
         break;
+
+    case CornerSlope30InnerSW:
+        ret.resize(b.width() * b.height());
+        ret.fill(RoofTile::TileCount);
+        if (mDepth == Three) { // 6x6 corners 1-6
+            setCornerTile(ret, b.width(), 0, 5, InnerSlope30SW6);
+            setCornerTile(ret, b.width(), 1, 4, InnerSlope30SW5);
+            setCornerTile(ret, b.width(), 2, 3, InnerSlope30SW4);
+            setCornerTile(ret, b.width(), 3, 2, InnerSlope30SW3);
+            setCornerTile(ret, b.width(), 4, 1, InnerSlope30SW2);
+            setCornerTile(ret, b.width(), 5, 0, InnerSlope30SW1);
+            setCornerTileColumn(ret, b.width(), 0, 0, { Slope30E6, Slope30E6, Slope30E6, Slope30E6, Slope30E6 });
+            setCornerTileColumn(ret, b.width(), 1, 0, { Slope30E5, Slope30E5, Slope30E5, Slope30E5 });
+            setCornerTileColumn(ret, b.width(), 2, 0, { Slope30E4, Slope30E4, Slope30E4 });
+            setCornerTileColumn(ret, b.width(), 3, 0, { Slope30E3, Slope30E3 });
+            setCornerTileColumn(ret, b.width(), 4, 0, { Slope30E2 });
+            setCornerTileRow(ret, b.width(), 1, 5, { Slope30N6, Slope30N6, Slope30N6, Slope30N6, Slope30N6 });
+            setCornerTileRow(ret, b.width(), 2, 4, { Slope30N5, Slope30N5, Slope30N5, Slope30N5 });
+            setCornerTileRow(ret, b.width(), 3, 3, { Slope30N4, Slope30N4, Slope30N4 });
+            setCornerTileRow(ret, b.width(), 4, 2, { Slope30N3, Slope30N3 });
+            setCornerTileRow(ret, b.width(), 5, 1, { Slope30N2 });
+        } else if (mDepth == TwoPoint5) { // 5x5 corners 1-5
+            setCornerTile(ret, b.width(), 0, 4, InnerSlope30SW5);
+            setCornerTile(ret, b.width(), 1, 3, InnerSlope30SW4);
+            setCornerTile(ret, b.width(), 2, 2, InnerSlope30SW3);
+            setCornerTile(ret, b.width(), 3, 1, InnerSlope30SW2);
+            setCornerTile(ret, b.width(), 4, 0, InnerSlope30SW1);
+            setCornerTileColumn(ret, b.width(), 0, 0, { Slope30E5, Slope30E5, Slope30E5, Slope30E5 });
+            setCornerTileColumn(ret, b.width(), 1, 0, { Slope30E4, Slope30E4, Slope30E4 });
+            setCornerTileColumn(ret, b.width(), 2, 0, { Slope30E3, Slope30E3 });
+            setCornerTileColumn(ret, b.width(), 3, 0, { Slope30E2 });
+            setCornerTileRow(ret, b.width(), 1, 4, { Slope30N5, Slope30N5, Slope30N5, Slope30N5 });
+            setCornerTileRow(ret, b.width(), 2, 3, { Slope30N4, Slope30N4, Slope30N4 });
+            setCornerTileRow(ret, b.width(), 3, 2, { Slope30N3, Slope30N3 });
+            setCornerTileRow(ret, b.width(), 4, 1, { Slope30N2 });
+        } else if (mDepth == Two) { // 4x4 corners 1-4
+            setCornerTile(ret, b.width(), 0, 3, InnerSlope30SW4);
+            setCornerTile(ret, b.width(), 1, 2, InnerSlope30SW3);
+            setCornerTile(ret, b.width(), 2, 1, InnerSlope30SW2);
+            setCornerTile(ret, b.width(), 3, 0, InnerSlope30SW1);
+            setCornerTileColumn(ret, b.width(), 0, 0, { Slope30E4, Slope30E4, Slope30E4 });
+            setCornerTileColumn(ret, b.width(), 1, 0, { Slope30E3, Slope30E3 });
+            setCornerTileColumn(ret, b.width(), 2, 0, { Slope30E2 });
+            setCornerTileRow(ret, b.width(), 1, 3, { Slope30N4, Slope30N4, Slope30N4 });
+            setCornerTileRow(ret, b.width(), 2, 2, { Slope30N3, Slope30N3 });
+            setCornerTileRow(ret, b.width(), 3, 1, { Slope30N2 });
+        } else if (mDepth == OnePoint5) { // 3x3 corners 1-3
+            setCornerTile(ret, b.width(), 0, 2, InnerSlope30SW3);
+            setCornerTile(ret, b.width(), 1, 1, InnerSlope30SW2);
+            setCornerTile(ret, b.width(), 2, 0, InnerSlope30SW1);
+            setCornerTileColumn(ret, b.width(), 0, 0, { Slope30E3, Slope30E3 });
+            setCornerTileColumn(ret, b.width(), 1, 0, { Slope30E2 });
+            setCornerTileRow(ret, b.width(), 1, 2, { Slope30N3, Slope30N3 });
+            setCornerTileRow(ret, b.width(), 2, 1, { Slope30N2 });
+        } else if (mDepth == One) { // 2x2 corners 1-2
+            setCornerTile(ret, b.width(), 0, 1, InnerSlope30SW2);
+            setCornerTile(ret, b.width(), 1, 0, InnerSlope30SW1);
+            setCornerTileColumn(ret, b.width(), 0, 0, { Slope30E2 });
+            setCornerTileRow(ret, b.width(), 1, 1, { Slope30N2 });
+        } else if (mDepth == Point5) { // 1x1 corner 1
+            setCornerTile(ret, b.width(), 0, 0, InnerSlope30SW1);
+        }
+        break;
+    case CornerSlope30InnerNW:
+        ret.resize(b.width() * b.height());
+        ret.fill(RoofTile::TileCount);
+        if (mDepth == Three) { // 6x6 corners 1-6
+            setCornerTile(ret, b.width(), 0, 0, InnerSlope30NW6);
+            setCornerTile(ret, b.width(), 1, 1, InnerSlope30NW5);
+            setCornerTile(ret, b.width(), 2, 2, InnerSlope30NW4);
+            setCornerTile(ret, b.width(), 3, 3, InnerSlope30NW3);
+            setCornerTile(ret, b.width(), 4, 4, InnerSlope30NW2);
+            setCornerTile(ret, b.width(), 5, 5, InnerSlope30NW1);
+            setCornerTileColumn(ret, b.width(), 5, 0, { Slope30S6, Slope30S5, Slope30S4, Slope30S3, Slope30S2 });
+            setCornerTileColumn(ret, b.width(), 4, 0, { Slope30S6, Slope30S5, Slope30S4, Slope30S3 });
+            setCornerTileColumn(ret, b.width(), 3, 0, { Slope30S6, Slope30S5, Slope30S4 });
+            setCornerTileColumn(ret, b.width(), 2, 0, { Slope30S6, Slope30S5 });
+            setCornerTileColumn(ret, b.width(), 1, 0, { Slope30S6 });
+            setCornerTileRow(ret, b.width(), 0, 5, { Slope30E6, Slope30E5, Slope30E4, Slope30E3, Slope30E2 });
+            setCornerTileRow(ret, b.width(), 0, 4, { Slope30E6, Slope30E5, Slope30E4, Slope30E3 });
+            setCornerTileRow(ret, b.width(), 0, 3, { Slope30E6, Slope30E5, Slope30E4 });
+            setCornerTileRow(ret, b.width(), 0, 2, { Slope30E6, Slope30E5 });
+            setCornerTileRow(ret, b.width(), 0, 1, { Slope30E6 });
+        } else if (mDepth == TwoPoint5) { // 5x5 corners 1-5
+            setCornerTile(ret, b.width(), 0, 0, InnerSlope30NW5);
+            setCornerTile(ret, b.width(), 1, 1, InnerSlope30NW4);
+            setCornerTile(ret, b.width(), 2, 2, InnerSlope30NW3);
+            setCornerTile(ret, b.width(), 3, 3, InnerSlope30NW2);
+            setCornerTile(ret, b.width(), 4, 4, InnerSlope30NW1);
+            setCornerTileColumn(ret, b.width(), 4, 0, { Slope30S5, Slope30S4, Slope30S3, Slope30S2 });
+            setCornerTileColumn(ret, b.width(), 3, 0, { Slope30S5, Slope30S4, Slope30S3 });
+            setCornerTileColumn(ret, b.width(), 2, 0, { Slope30S5, Slope30S4 });
+            setCornerTileColumn(ret, b.width(), 1, 0, { Slope30S5 });
+            setCornerTileRow(ret, b.width(), 0, 4, { Slope30E5, Slope30E4, Slope30E3, Slope30E2 });
+            setCornerTileRow(ret, b.width(), 0, 3, { Slope30E5, Slope30E4, Slope30E3 });
+            setCornerTileRow(ret, b.width(), 0, 2, { Slope30E5, Slope30E4 });
+            setCornerTileRow(ret, b.width(), 0, 1, { Slope30E5 });
+        } else if (mDepth == Two) { // 4x4 corners 1-4
+            setCornerTile(ret, b.width(), 0, 0, InnerSlope30NW4);
+            setCornerTile(ret, b.width(), 1, 1, InnerSlope30NW3);
+            setCornerTile(ret, b.width(), 2, 2, InnerSlope30NW2);
+            setCornerTile(ret, b.width(), 3, 3, InnerSlope30NW1);
+            setCornerTileColumn(ret, b.width(), 3, 0, { Slope30S4, Slope30S3, Slope30S2 });
+            setCornerTileColumn(ret, b.width(), 2, 0, { Slope30S4, Slope30S3 });
+            setCornerTileColumn(ret, b.width(), 1, 0, { Slope30S4 });
+            setCornerTileRow(ret, b.width(), 0, 3, { Slope30E4, Slope30E3, Slope30E2 });
+            setCornerTileRow(ret, b.width(), 0, 2, { Slope30E4, Slope30E3 });
+            setCornerTileRow(ret, b.width(), 0, 1, { Slope30E4 });
+        } else if (mDepth == OnePoint5) { // 3x3 corners 1-3
+            setCornerTile(ret, b.width(), 0, 0, InnerSlope30NW3);
+            setCornerTile(ret, b.width(), 1, 1, InnerSlope30NW2);
+            setCornerTile(ret, b.width(), 2, 2, InnerSlope30NW1);
+            setCornerTileColumn(ret, b.width(), 2, 0, { Slope30S3, Slope30S2 });
+            setCornerTileColumn(ret, b.width(), 1, 0, { Slope30S3 });
+            setCornerTileRow(ret, b.width(), 0, 2, { Slope30E3, Slope30E2 });
+            setCornerTileRow(ret, b.width(), 0, 1, { Slope30E3 });
+        } else if (mDepth == One) { // 2x2 corners 1-2
+            setCornerTile(ret, b.width(), 0, 0, InnerSlope30NW2);
+            setCornerTile(ret, b.width(), 1, 1, InnerSlope30NW1);
+            setCornerTileColumn(ret, b.width(), 1, 0, { Slope30S2 });
+            setCornerTileRow(ret, b.width(), 0, 1, { Slope30E2 });
+        } else if (mDepth == Point5) { // 1x1 corner 1
+            setCornerTile(ret, b.width(), 0, 0, InnerSlope30NW1);
+        }
+        break;
+    case CornerSlope30InnerNE:
+        ret.resize(b.width() * b.height());
+        ret.fill(RoofTile::TileCount);
+        if (mDepth == Three) { // 6x6 corners 1-6
+            setCornerTile(ret, b.width(), 0, 5, InnerSlope30NE1);
+            setCornerTile(ret, b.width(), 1, 4, InnerSlope30NE2);
+            setCornerTile(ret, b.width(), 2, 3, InnerSlope30NE3);
+            setCornerTile(ret, b.width(), 3, 2, InnerSlope30NE4);
+            setCornerTile(ret, b.width(), 4, 1, InnerSlope30NE5);
+            setCornerTile(ret, b.width(), 5, 0, InnerSlope30NE6);
+            setCornerTileColumn(ret, b.width(), 0, 0, { Slope30S6, Slope30S5, Slope30S4, Slope30S3, Slope30S2 });
+            setCornerTileColumn(ret, b.width(), 1, 0, { Slope30S6, Slope30S5, Slope30S4, Slope30S3 });
+            setCornerTileColumn(ret, b.width(), 2, 0, { Slope30S6, Slope30S5, Slope30S4 });
+            setCornerTileColumn(ret, b.width(), 3, 0, { Slope30S6, Slope30S5 });
+            setCornerTileColumn(ret, b.width(), 4, 0, { Slope30S6 });
+            setCornerTileRow(ret, b.width(), 1, 5, { Slope30W2, Slope30W3, Slope30W4, Slope30W5, Slope30W6 });
+            setCornerTileRow(ret, b.width(), 2, 4, { Slope30W3, Slope30W4, Slope30W5, Slope30W6 });
+            setCornerTileRow(ret, b.width(), 3, 3, { Slope30W4, Slope30W5, Slope30W6 });
+            setCornerTileRow(ret, b.width(), 4, 2, { Slope30W5, Slope30W6 });
+            setCornerTileRow(ret, b.width(), 5, 1, { Slope30W6 });
+        } else if (mDepth == TwoPoint5) { // 5x5 corners 1-5
+            setCornerTile(ret, b.width(), 0, 4, InnerSlope30NE1);
+            setCornerTile(ret, b.width(), 1, 3, InnerSlope30NE2);
+            setCornerTile(ret, b.width(), 2, 2, InnerSlope30NE3);
+            setCornerTile(ret, b.width(), 3, 1, InnerSlope30NE4);
+            setCornerTile(ret, b.width(), 4, 0, InnerSlope30NE5);
+            setCornerTileColumn(ret, b.width(), 0, 0, { Slope30S5, Slope30S4, Slope30S3, Slope30S2 });
+            setCornerTileColumn(ret, b.width(), 1, 0, { Slope30S5, Slope30S4, Slope30S3 });
+            setCornerTileColumn(ret, b.width(), 2, 0, { Slope30S5, Slope30S4 });
+            setCornerTileColumn(ret, b.width(), 3, 0, { Slope30S5 });
+            setCornerTileRow(ret, b.width(), 1, 4, { Slope30W2, Slope30W3, Slope30W4, Slope30W5 });
+            setCornerTileRow(ret, b.width(), 2, 3, { Slope30W3, Slope30W4, Slope30W5 });
+            setCornerTileRow(ret, b.width(), 3, 2, { Slope30W4, Slope30W5 });
+            setCornerTileRow(ret, b.width(), 4, 1, { Slope30W5 });
+        } else if (mDepth == Two) { // 4x4 corners 1-4
+            setCornerTile(ret, b.width(), 0, 3, InnerSlope30NE1);
+            setCornerTile(ret, b.width(), 1, 2, InnerSlope30NE2);
+            setCornerTile(ret, b.width(), 2, 1, InnerSlope30NE3);
+            setCornerTile(ret, b.width(), 3, 0, InnerSlope30NE4);
+            setCornerTileColumn(ret, b.width(), 0, 0, { Slope30S4, Slope30S3, Slope30S2 });
+            setCornerTileColumn(ret, b.width(), 1, 0, { Slope30S4, Slope30S3 });
+            setCornerTileColumn(ret, b.width(), 2, 0, { Slope30S4 });
+            setCornerTileRow(ret, b.width(), 1, 3, { Slope30W2, Slope30W3, Slope30W4 });
+            setCornerTileRow(ret, b.width(), 2, 2, { Slope30W3, Slope30W4 });
+            setCornerTileRow(ret, b.width(), 3, 1, { Slope30W4 });
+        } else if (mDepth == OnePoint5) { // 3x3 corners 1-3
+            setCornerTile(ret, b.width(), 0, 2, InnerSlope30NE1);
+            setCornerTile(ret, b.width(), 1, 1, InnerSlope30NE2);
+            setCornerTile(ret, b.width(), 2, 0, InnerSlope30NE3);
+            setCornerTileColumn(ret, b.width(), 0, 0, { Slope30S3, Slope30S2 });
+            setCornerTileColumn(ret, b.width(), 1, 0, { Slope30S3 });
+            setCornerTileRow(ret, b.width(), 1, 2, { Slope30W2, Slope30W3 });
+            setCornerTileRow(ret, b.width(), 2, 1, { Slope30W3 });
+        } else if (mDepth == One) { // 2x2 corners 1-2
+            setCornerTile(ret, b.width(), 0, 1, InnerSlope30NE1);
+            setCornerTile(ret, b.width(), 1, 0, InnerSlope30NE2);
+            setCornerTileColumn(ret, b.width(), 0, 0, { Slope30S2 });
+            setCornerTileRow(ret, b.width(), 1, 1, { Slope30W2 });
+        } else if (mDepth == Point5) { // 1x1 corner 1
+            setCornerTile(ret, b.width(), 0, 0, InnerSlope30NE1);
+        }
+        break;
+    case CornerSlope30InnerSE:
+        ret.resize(b.width() * b.height());
+        ret.fill(RoofTile::TileCount);
+        if (mDepth == Three) { // 6x6 corners 1-6
+            setCornerTile(ret, b.width(), 0, 0, InnerSlope30SE1);
+            setCornerTile(ret, b.width(), 1, 1, InnerSlope30SE2);
+            setCornerTile(ret, b.width(), 2, 2, InnerSlope30SE3);
+            setCornerTile(ret, b.width(), 3, 3, InnerSlope30SE4);
+            setCornerTile(ret, b.width(), 4, 4, InnerSlope30SE5);
+            setCornerTile(ret, b.width(), 5, 5, InnerSlope30SE6);
+            setCornerTileColumn(ret, b.width(), 0, 1, { Slope30N2, Slope30N3, Slope30N4, Slope30N5, Slope30N6 });
+            setCornerTileColumn(ret, b.width(), 1, 2, { Slope30N3, Slope30N4, Slope30N5, Slope30N6 });
+            setCornerTileColumn(ret, b.width(), 2, 3, { Slope30N4, Slope30N5, Slope30N6 });
+            setCornerTileColumn(ret, b.width(), 3, 4, { Slope30N5, Slope30N6 });
+            setCornerTileColumn(ret, b.width(), 4, 5, { Slope30N6 });
+            setCornerTileRow(ret, b.width(), 1, 0, { Slope30W2, Slope30W3, Slope30W4, Slope30W5, Slope30W6 });
+            setCornerTileRow(ret, b.width(), 2, 1, { Slope30W3, Slope30W4, Slope30W5, Slope30W6 });
+            setCornerTileRow(ret, b.width(), 3, 2, { Slope30W4, Slope30W5, Slope30W6 });
+            setCornerTileRow(ret, b.width(), 4, 3, { Slope30W5, Slope30W6 });
+            setCornerTileRow(ret, b.width(), 5, 4, { Slope30W6 });
+        } else if (mDepth == TwoPoint5) { // 5x5 corners 1-5
+            setCornerTile(ret, b.width(), 0, 0, InnerSlope30SE1);
+            setCornerTile(ret, b.width(), 1, 1, InnerSlope30SE2);
+            setCornerTile(ret, b.width(), 2, 2, InnerSlope30SE3);
+            setCornerTile(ret, b.width(), 3, 3, InnerSlope30SE4);
+            setCornerTile(ret, b.width(), 4, 4, InnerSlope30SE5);
+            setCornerTileColumn(ret, b.width(), 0, 1, { Slope30N2, Slope30N3, Slope30N4, Slope30N5 });
+            setCornerTileColumn(ret, b.width(), 1, 2, { Slope30N3, Slope30N4, Slope30N5 });
+            setCornerTileColumn(ret, b.width(), 2, 3, { Slope30N4, Slope30N5 });
+            setCornerTileColumn(ret, b.width(), 3, 4, { Slope30N5 });
+            setCornerTileRow(ret, b.width(), 1, 0, { Slope30W2, Slope30W3, Slope30W4, Slope30W5 });
+            setCornerTileRow(ret, b.width(), 2, 1, { Slope30W3, Slope30W4, Slope30W5 });
+            setCornerTileRow(ret, b.width(), 3, 2, { Slope30W4, Slope30W5 });
+            setCornerTileRow(ret, b.width(), 4, 3, { Slope30W5 });
+        } else if (mDepth == Two) { // 4x4 corners 1-4
+            setCornerTile(ret, b.width(), 0, 0, InnerSlope30SE1);
+            setCornerTile(ret, b.width(), 1, 1, InnerSlope30SE2);
+            setCornerTile(ret, b.width(), 2, 2, InnerSlope30SE3);
+            setCornerTile(ret, b.width(), 3, 3, InnerSlope30SE4);
+            setCornerTileColumn(ret, b.width(), 0, 1, { Slope30N2, Slope30N3, Slope30N4 });
+            setCornerTileColumn(ret, b.width(), 1, 2, { Slope30N3, Slope30N4 });
+            setCornerTileColumn(ret, b.width(), 2, 3, { Slope30N4 });
+            setCornerTileRow(ret, b.width(), 1, 0, { Slope30W2, Slope30W3, Slope30W4 });
+            setCornerTileRow(ret, b.width(), 2, 1, { Slope30W3, Slope30W4 });
+            setCornerTileRow(ret, b.width(), 3, 2, { Slope30W4 });
+        } else if (mDepth == OnePoint5) { // 3x3 corners 1-3
+            setCornerTile(ret, b.width(), 0, 0, InnerSlope30SE1);
+            setCornerTile(ret, b.width(), 1, 1, InnerSlope30SE2);
+            setCornerTile(ret, b.width(), 2, 2, InnerSlope30SE3);
+            setCornerTileColumn(ret, b.width(), 0, 1, { Slope30N2, Slope30N3 });
+            setCornerTileColumn(ret, b.width(), 1, 2, { Slope30N3 });
+            setCornerTileRow(ret, b.width(), 1, 0, { Slope30W2, Slope30W3 });
+            setCornerTileRow(ret, b.width(), 2, 1, { Slope30W3 });
+        } else if (mDepth == One) { // 2x2 corners 1-2
+            setCornerTile(ret, b.width(), 0, 0, InnerSlope30SE1);
+            setCornerTile(ret, b.width(), 1, 1, InnerSlope30SE2);
+            setCornerTileColumn(ret, b.width(), 0, 1, { Slope30N2 });
+            setCornerTileRow(ret, b.width(), 1, 0, { Slope30W2 });
+        } else if (mDepth == Point5) { // 1x1 corner 1
+            setCornerTile(ret, b.width(), 0, 0, InnerSlope30SE1);
+        }
+        break;
+
+    case CornerSlope30OuterSW:
+        ret.resize(b.width() * b.height());
+        ret.fill(RoofTile::TileCount);
+        if (mDepth == Three) { // 6x6 corners 1-6
+            setCornerTile(ret, b.width(), 0, 5, OuterSlope30SW1);
+            setCornerTile(ret, b.width(), 1, 4, OuterSlope30SW2);
+            setCornerTile(ret, b.width(), 2, 3, OuterSlope30SW3);
+            setCornerTile(ret, b.width(), 3, 2, OuterSlope30SW4);
+            setCornerTile(ret, b.width(), 4, 1, OuterSlope30SW5);
+            setCornerTile(ret, b.width(), 5, 0, OuterSlope30SW6);
+            setCornerTileColumn(ret, b.width(), 0, 0, { Slope30W1, Slope30W1, Slope30W1, Slope30W1, Slope30W1 });
+            setCornerTileColumn(ret, b.width(), 1, 0, { Slope30W2, Slope30W2, Slope30W2, Slope30W2 });
+            setCornerTileColumn(ret, b.width(), 2, 0, { Slope30W3, Slope30W3, Slope30W3 });
+            setCornerTileColumn(ret, b.width(), 3, 0, { Slope30W4, Slope30W4 });
+            setCornerTileColumn(ret, b.width(), 4, 0, { Slope30W5 });
+            setCornerTileRow(ret, b.width(), 1, 5, { Slope30S1, Slope30S1, Slope30S1, Slope30S1, Slope30S1 });
+            setCornerTileRow(ret, b.width(), 2, 4, { Slope30S2, Slope30S2, Slope30S2, Slope30S2 });
+            setCornerTileRow(ret, b.width(), 3, 3, { Slope30S3, Slope30S3, Slope30S3 });
+            setCornerTileRow(ret, b.width(), 4, 2, { Slope30S4, Slope30S4 });
+            setCornerTileRow(ret, b.width(), 5, 1, { Slope30S5 });
+        } else if (mDepth == TwoPoint5) { // 5x5 corners 1-5
+            setCornerTile(ret, b.width(), 0, 4, OuterSlope30SW1);
+            setCornerTile(ret, b.width(), 1, 3, OuterSlope30SW2);
+            setCornerTile(ret, b.width(), 2, 2, OuterSlope30SW3);
+            setCornerTile(ret, b.width(), 3, 1, OuterSlope30SW4);
+            setCornerTile(ret, b.width(), 4, 0, OuterSlope30SW5);
+            setCornerTileColumn(ret, b.width(), 0, 0, { Slope30W1, Slope30W1, Slope30W1, Slope30W1 });
+            setCornerTileColumn(ret, b.width(), 1, 0, { Slope30W2, Slope30W2, Slope30W2 });
+            setCornerTileColumn(ret, b.width(), 2, 0, { Slope30W3, Slope30W3 });
+            setCornerTileColumn(ret, b.width(), 3, 0, { Slope30W4  });
+            setCornerTileRow(ret, b.width(), 1, 4, { Slope30S1, Slope30S1, Slope30S1, Slope30S1 });
+            setCornerTileRow(ret, b.width(), 2, 3, { Slope30S2, Slope30S2, Slope30S2 });
+            setCornerTileRow(ret, b.width(), 3, 2, { Slope30S3, Slope30S3 });
+            setCornerTileRow(ret, b.width(), 4, 1, { Slope30S4 });
+        } else if (mDepth == Two) { // 4x4 corners 1-4
+            setCornerTile(ret, b.width(), 0, 3, OuterSlope30SW1);
+            setCornerTile(ret, b.width(), 1, 2, OuterSlope30SW2);
+            setCornerTile(ret, b.width(), 2, 1, OuterSlope30SW3);
+            setCornerTile(ret, b.width(), 3, 0, OuterSlope30SW4);
+            setCornerTileColumn(ret, b.width(), 0, 0, { Slope30W1, Slope30W1, Slope30W1 });
+            setCornerTileColumn(ret, b.width(), 1, 0, { Slope30W2, Slope30W2 });
+            setCornerTileColumn(ret, b.width(), 2, 0, { Slope30W3 });
+            setCornerTileRow(ret, b.width(), 1, 3, { Slope30S1, Slope30S1, Slope30S1 });
+            setCornerTileRow(ret, b.width(), 2, 2, { Slope30S2, Slope30S2 });
+            setCornerTileRow(ret, b.width(), 3, 1, { Slope30S3 });
+        } else if (mDepth == OnePoint5) { // 3x3 corners 1-3
+            setCornerTile(ret, b.width(), 0, 2, OuterSlope30SW1);
+            setCornerTile(ret, b.width(), 1, 1, OuterSlope30SW2);
+            setCornerTile(ret, b.width(), 2, 0, OuterSlope30SW3);
+            setCornerTileColumn(ret, b.width(), 0, 0, { Slope30W1, Slope30W1 });
+            setCornerTileColumn(ret, b.width(), 1, 0, { Slope30W2 });
+            setCornerTileRow(ret, b.width(), 1, 2, { Slope30S1, Slope30S1 });
+            setCornerTileRow(ret, b.width(), 2, 1, { Slope30S2 });
+        } else if (mDepth == One) { // 2x2 corners 1-2
+            setCornerTile(ret, b.width(), 0, 1, OuterSlope30SW1);
+            setCornerTile(ret, b.width(), 1, 0, OuterSlope30SW2);
+            setCornerTileColumn(ret, b.width(), 0, 0, { Slope30W1 });
+            setCornerTileRow(ret, b.width(), 1, 1, { Slope30S1 });
+        } else if (mDepth == Point5) { // 1x1 corner 1
+            setCornerTile(ret, b.width(), 0, 0, OuterSlope30SW1);
+        }
+        break;
+    case CornerSlope30OuterNW:
+        ret.resize(b.width() * b.height());
+        ret.fill(RoofTile::TileCount);
+        if (mDepth == Three) { // 6x6 corners 1-6
+            setCornerTile(ret, b.width(), 0, 0, OuterSlope30NW1);
+            setCornerTile(ret, b.width(), 1, 1, OuterSlope30NW2);
+            setCornerTile(ret, b.width(), 2, 2, OuterSlope30NW3);
+            setCornerTile(ret, b.width(), 3, 3, OuterSlope30NW4);
+            setCornerTile(ret, b.width(), 4, 4, OuterSlope30NW5);
+            setCornerTile(ret, b.width(), 5, 5, OuterSlope30NW6);
+            setCornerTileColumn(ret, b.width(), 0, 1, { Slope30W1, Slope30W1, Slope30W1, Slope30W1, Slope30W1 });
+            setCornerTileColumn(ret, b.width(), 1, 2, { Slope30W2, Slope30W2, Slope30W2, Slope30W2 });
+            setCornerTileColumn(ret, b.width(), 2, 3, { Slope30W3, Slope30W3, Slope30W3 });
+            setCornerTileColumn(ret, b.width(), 3, 4, { Slope30W4, Slope30W4 });
+            setCornerTileColumn(ret, b.width(), 4, 5, { Slope30W5 });
+            setCornerTileRow(ret, b.width(), 1, 0, { Slope30N1, Slope30N1, Slope30N1, Slope30N1, Slope30N1 });
+            setCornerTileRow(ret, b.width(), 2, 1, { Slope30N2, Slope30N2, Slope30N2, Slope30N2 });
+            setCornerTileRow(ret, b.width(), 3, 2, { Slope30N3, Slope30N3, Slope30N3 });
+            setCornerTileRow(ret, b.width(), 4, 3, { Slope30N4, Slope30N4 });
+            setCornerTileRow(ret, b.width(), 5, 4, { Slope30N5 });
+        } else if (mDepth == TwoPoint5) { // 5x5 corners 1-5
+            setCornerTile(ret, b.width(), 0, 0, OuterSlope30NW1);
+            setCornerTile(ret, b.width(), 1, 1, OuterSlope30NW2);
+            setCornerTile(ret, b.width(), 2, 2, OuterSlope30NW3);
+            setCornerTile(ret, b.width(), 3, 3, OuterSlope30NW4);
+            setCornerTile(ret, b.width(), 4, 4, OuterSlope30NW5);
+            setCornerTileColumn(ret, b.width(), 0, 1, { Slope30W1, Slope30W1, Slope30W1, Slope30W1 });
+            setCornerTileColumn(ret, b.width(), 1, 2, { Slope30W2, Slope30W2, Slope30W2 });
+            setCornerTileColumn(ret, b.width(), 2, 3, { Slope30W3, Slope30W3 });
+            setCornerTileColumn(ret, b.width(), 3, 4, { Slope30W4 });
+            setCornerTileRow(ret, b.width(), 1, 0, { Slope30N1, Slope30N1, Slope30N1, Slope30N1 });
+            setCornerTileRow(ret, b.width(), 2, 1, { Slope30N2, Slope30N2, Slope30N2 });
+            setCornerTileRow(ret, b.width(), 3, 2, { Slope30N3, Slope30N3 });
+            setCornerTileRow(ret, b.width(), 4, 3, { Slope30N4 });
+        } else if (mDepth == Two) { // 4x4 corners 1-4
+            setCornerTile(ret, b.width(), 0, 0, OuterSlope30NW1);
+            setCornerTile(ret, b.width(), 1, 1, OuterSlope30NW2);
+            setCornerTile(ret, b.width(), 2, 2, OuterSlope30NW3);
+            setCornerTile(ret, b.width(), 3, 3, OuterSlope30NW4);
+            setCornerTileColumn(ret, b.width(), 0, 1, { Slope30W1, Slope30W1, Slope30W1 });
+            setCornerTileColumn(ret, b.width(), 1, 2, { Slope30W2, Slope30W2 });
+            setCornerTileColumn(ret, b.width(), 2, 3, { Slope30W3 });
+            setCornerTileRow(ret, b.width(), 1, 0, { Slope30N1, Slope30N1, Slope30N1 });
+            setCornerTileRow(ret, b.width(), 2, 1, { Slope30N2, Slope30N2 });
+            setCornerTileRow(ret, b.width(), 3, 2, { Slope30N3 });
+        } else if (mDepth == OnePoint5) { // 3x3 corners 1-3
+            setCornerTile(ret, b.width(), 0, 0, OuterSlope30NW1);
+            setCornerTile(ret, b.width(), 1, 1, OuterSlope30NW2);
+            setCornerTile(ret, b.width(), 2, 2, OuterSlope30NW3);
+            setCornerTileColumn(ret, b.width(), 0, 1, { Slope30W1, Slope30W1 });
+            setCornerTileColumn(ret, b.width(), 1, 2, { Slope30W2 });
+            setCornerTileRow(ret, b.width(), 1, 0, { Slope30N1, Slope30N1 });
+            setCornerTileRow(ret, b.width(), 2, 1, { Slope30N2 });
+        } else if (mDepth == One) { // 2x2 corners 1-2
+            setCornerTile(ret, b.width(), 0, 0, OuterSlope30NW1);
+            setCornerTile(ret, b.width(), 1, 1, OuterSlope30NW2);
+            setCornerTileColumn(ret, b.width(), 0, 1, { Slope30W1 });
+            setCornerTileRow(ret, b.width(), 1, 0, { Slope30N1 });
+        } else if (mDepth == Point5) { // 1x1 corner 1
+            setCornerTile(ret, b.width(), 0, 0, OuterSlope30NW1);
+        }
+        break;
+    case CornerSlope30OuterNE:
+        ret.resize(b.width() * b.height());
+        ret.fill(RoofTile::TileCount);
+        if (mDepth == Three) { // 6x6 corners 1-6
+            setCornerTile(ret, b.width(), 5, 0, OuterSlope30NE1);
+            setCornerTile(ret, b.width(), 4, 1, OuterSlope30NE2);
+            setCornerTile(ret, b.width(), 3, 2, OuterSlope30NE3);
+            setCornerTile(ret, b.width(), 2, 3, OuterSlope30NE4);
+            setCornerTile(ret, b.width(), 1, 4, OuterSlope30NE5);
+            setCornerTile(ret, b.width(), 0, 5, OuterSlope30NE6);
+            setCornerTileColumn(ret, b.width(), 5, 1, { Slope30E1, Slope30E1, Slope30E1, Slope30E1, Slope30E1 });
+            setCornerTileColumn(ret, b.width(), 4, 2, { Slope30E2, Slope30E2, Slope30E2, Slope30E2 });
+            setCornerTileColumn(ret, b.width(), 3, 3, { Slope30E3, Slope30E3, Slope30E3 });
+            setCornerTileColumn(ret, b.width(), 2, 4, { Slope30E4, Slope30E4 });
+            setCornerTileColumn(ret, b.width(), 1, 5, { Slope30E5 });
+            setCornerTileRow(ret, b.width(), 0, 0, { Slope30N1, Slope30N1, Slope30N1, Slope30N1, Slope30N1 });
+            setCornerTileRow(ret, b.width(), 0, 1, { Slope30N2, Slope30N2, Slope30N2, Slope30N2 });
+            setCornerTileRow(ret, b.width(), 0, 2, { Slope30N3, Slope30N3, Slope30N3 });
+            setCornerTileRow(ret, b.width(), 0, 3, { Slope30N4, Slope30N4 });
+            setCornerTileRow(ret, b.width(), 0, 4, { Slope30N5 });
+        } else if (mDepth == TwoPoint5) { // 5x5 corners 1-5
+            setCornerTile(ret, b.width(), 4, 0, OuterSlope30NE1);
+            setCornerTile(ret, b.width(), 3, 1, OuterSlope30NE2);
+            setCornerTile(ret, b.width(), 2, 2, OuterSlope30NE3);
+            setCornerTile(ret, b.width(), 1, 3, OuterSlope30NE4);
+            setCornerTile(ret, b.width(), 0, 4, OuterSlope30NE5);
+            setCornerTileColumn(ret, b.width(), 4, 1, { Slope30E1, Slope30E1, Slope30E1, Slope30E1 });
+            setCornerTileColumn(ret, b.width(), 3, 2, { Slope30E2, Slope30E2, Slope30E2 });
+            setCornerTileColumn(ret, b.width(), 2, 3, { Slope30E3, Slope30E3 });
+            setCornerTileColumn(ret, b.width(), 1, 4, { Slope30E4 });
+            setCornerTileRow(ret, b.width(), 0, 0, { Slope30N1, Slope30N1, Slope30N1, Slope30N1 });
+            setCornerTileRow(ret, b.width(), 0, 1, { Slope30N2, Slope30N2, Slope30N2 });
+            setCornerTileRow(ret, b.width(), 0, 2, { Slope30N3, Slope30N3 });
+            setCornerTileRow(ret, b.width(), 0, 3, { Slope30N4 });
+        } else if (mDepth == Two) { // 4x4 corners 1-4
+            setCornerTile(ret, b.width(), 3, 0, OuterSlope30NE1);
+            setCornerTile(ret, b.width(), 2, 1, OuterSlope30NE2);
+            setCornerTile(ret, b.width(), 1, 2, OuterSlope30NE3);
+            setCornerTile(ret, b.width(), 0, 3, OuterSlope30NE4);
+            setCornerTileColumn(ret, b.width(), 3, 1, { Slope30E1, Slope30E1, Slope30E1 });
+            setCornerTileColumn(ret, b.width(), 2, 2, { Slope30E2, Slope30E2 });
+            setCornerTileColumn(ret, b.width(), 1, 3, { Slope30E3 });
+            setCornerTileRow(ret, b.width(), 0, 0, { Slope30N1, Slope30N1, Slope30N1 });
+            setCornerTileRow(ret, b.width(), 0, 1, { Slope30N2, Slope30N2 });
+            setCornerTileRow(ret, b.width(), 0, 2, { Slope30N3 });
+        } else if (mDepth == OnePoint5) { // 3x3 corners 1-3
+            setCornerTile(ret, b.width(), 2, 0, OuterSlope30NE1);
+            setCornerTile(ret, b.width(), 1, 1, OuterSlope30NE2);
+            setCornerTile(ret, b.width(), 0, 2, OuterSlope30NE3);
+            setCornerTileColumn(ret, b.width(), 2, 1, { Slope30E1, Slope30E1 });
+            setCornerTileColumn(ret, b.width(), 1, 2, { Slope30E2 });
+            setCornerTileRow(ret, b.width(), 0, 0, { Slope30N1, Slope30N1 });
+            setCornerTileRow(ret, b.width(), 0, 1, { Slope30N2 });
+        } else if (mDepth == One) { // 2x2 corners 1-2
+            setCornerTile(ret, b.width(), 1, 0, OuterSlope30NE1);
+            setCornerTile(ret, b.width(), 0, 1, OuterSlope30NE2);
+            setCornerTileColumn(ret, b.width(), 1, 1, { Slope30E1 });
+            setCornerTileRow(ret, b.width(), 0, 0, { Slope30N1 });
+        } else if (mDepth == Point5) { // 1x1 corner 1
+            setCornerTile(ret, b.width(), 0, 0, OuterSlope30NE1);
+        }
+        break;
+    case CornerSlope30OuterSE:
+        ret.resize(b.width() * b.height());
+        ret.fill(RoofTile::TileCount);
+        if (mDepth == Three) { // 6x6 corners 1-6
+            setCornerTile(ret, b.width(), 5, 5, OuterSlope30SE1);
+            setCornerTile(ret, b.width(), 4, 4, OuterSlope30SE2);
+            setCornerTile(ret, b.width(), 3, 3, OuterSlope30SE3);
+            setCornerTile(ret, b.width(), 2, 2, OuterSlope30SE4);
+            setCornerTile(ret, b.width(), 1, 1, OuterSlope30SE5);
+            setCornerTile(ret, b.width(), 0, 0, OuterSlope30SE6);
+            setCornerTileColumn(ret, b.width(), 5, 0, { Slope30E1, Slope30E1, Slope30E1, Slope30E1, Slope30E1 });
+            setCornerTileColumn(ret, b.width(), 4, 0, { Slope30E2, Slope30E2, Slope30E2, Slope30E2 });
+            setCornerTileColumn(ret, b.width(), 3, 0, { Slope30E3, Slope30E3, Slope30E3 });
+            setCornerTileColumn(ret, b.width(), 2, 0, { Slope30E4, Slope30E4 });
+            setCornerTileColumn(ret, b.width(), 1, 0, { Slope30E5 });
+            setCornerTileRow(ret, b.width(), 0, 5, { Slope30S1, Slope30S1, Slope30S1, Slope30S1, Slope30S1 });
+            setCornerTileRow(ret, b.width(), 0, 4, { Slope30S2, Slope30S2, Slope30S2, Slope30S2 });
+            setCornerTileRow(ret, b.width(), 0, 3, { Slope30S3, Slope30S3, Slope30S3 });
+            setCornerTileRow(ret, b.width(), 0, 2, { Slope30S4, Slope30S4 });
+            setCornerTileRow(ret, b.width(), 0, 1, { Slope30S5 });
+        } else if (mDepth == TwoPoint5) { // 5x5 corners 1-5
+            setCornerTile(ret, b.width(), 4, 4, OuterSlope30SE1);
+            setCornerTile(ret, b.width(), 3, 3, OuterSlope30SE2);
+            setCornerTile(ret, b.width(), 2, 2, OuterSlope30SE3);
+            setCornerTile(ret, b.width(), 1, 1, OuterSlope30SE4);
+            setCornerTile(ret, b.width(), 0, 0, OuterSlope30SE5);
+            setCornerTileColumn(ret, b.width(), 4, 0, { Slope30E1, Slope30E1, Slope30E1, Slope30E1 });
+            setCornerTileColumn(ret, b.width(), 3, 0, { Slope30E2, Slope30E2, Slope30E2 });
+            setCornerTileColumn(ret, b.width(), 2, 0, { Slope30E3, Slope30E3 });
+            setCornerTileColumn(ret, b.width(), 1, 0, { Slope30E4 });
+            setCornerTileRow(ret, b.width(), 0, 4, { Slope30S1, Slope30S1, Slope30S1, Slope30S1 });
+            setCornerTileRow(ret, b.width(), 0, 3, { Slope30S2, Slope30S2, Slope30S2 });
+            setCornerTileRow(ret, b.width(), 0, 2, { Slope30S3, Slope30S3 });
+            setCornerTileRow(ret, b.width(), 0, 1, { Slope30S4 });
+        } else if (mDepth == Two) { // 4x4 corners 1-4
+            setCornerTile(ret, b.width(), 3, 3, OuterSlope30SE1);
+            setCornerTile(ret, b.width(), 2, 2, OuterSlope30SE2);
+            setCornerTile(ret, b.width(), 1, 1, OuterSlope30SE3);
+            setCornerTile(ret, b.width(), 0, 0, OuterSlope30SE4);
+            setCornerTileColumn(ret, b.width(), 3, 0, { Slope30E1, Slope30E1, Slope30E1 });
+            setCornerTileColumn(ret, b.width(), 2, 0, { Slope30E2, Slope30E2 });
+            setCornerTileColumn(ret, b.width(), 1, 0, { Slope30E3 });
+            setCornerTileRow(ret, b.width(), 0, 3, { Slope30S1, Slope30S1, Slope30S1 });
+            setCornerTileRow(ret, b.width(), 0, 2, { Slope30S2, Slope30S2 });
+            setCornerTileRow(ret, b.width(), 0, 1, { Slope30S3 });
+        } else if (mDepth == OnePoint5) { // 3x3 corners 1-3
+            setCornerTile(ret, b.width(), 2, 2, OuterSlope30SE1);
+            setCornerTile(ret, b.width(), 1, 1, OuterSlope30SE2);
+            setCornerTile(ret, b.width(), 0, 0, OuterSlope30SE3);
+            setCornerTileColumn(ret, b.width(), 2, 0, { Slope30E1, Slope30E1 });
+            setCornerTileColumn(ret, b.width(), 1, 0, { Slope30E2 });
+            setCornerTileRow(ret, b.width(), 0, 2, { Slope30S1, Slope30S1 });
+            setCornerTileRow(ret, b.width(), 0, 1, { Slope30S2 });
+        } else if (mDepth == One) { // 2x2 corners 1-2
+            setCornerTile(ret, b.width(), 1, 1, OuterSlope30SE1);
+            setCornerTile(ret, b.width(), 0, 0, OuterSlope30SE2);
+            setCornerTileColumn(ret, b.width(), 1, 0, { Slope30E1 });
+            setCornerTileRow(ret, b.width(), 0, 1, { Slope30S1 });
+        } else if (mDepth == Point5) { // 1x1 corner 1
+            setCornerTile(ret, b.width(), 0, 0, OuterSlope30SE1);
+        }
+        break;
+
     default:
         break;
     }
@@ -2283,78 +3821,125 @@ QRect RoofObject::cornerOuter()
 QString RoofObject::typeToString(RoofObject::RoofType type)
 {
     switch (type) {
-    case SlopeW: return QLatin1String("SlopeW");
-    case SlopeN: return QLatin1String("SlopeN");
-    case SlopeE: return QLatin1String("SlopeE");
-    case SlopeS: return QLatin1String("SlopeS");
+    case SlopeW: return QStringLiteral("SlopeW");
+    case SlopeN: return QStringLiteral("SlopeN");
+    case SlopeE: return QStringLiteral("SlopeE");
+    case SlopeS: return QStringLiteral("SlopeS");
 
-    case PeakWE: return QLatin1String("PeakWE");
-    case PeakNS: return QLatin1String("PeakNS");
+    case PeakWE: return QStringLiteral("PeakWE");
+    case PeakNS: return QStringLiteral("PeakNS");
 
-    case DormerW: return QLatin1String("DormerW");
-    case DormerN: return QLatin1String("DormerN");
-    case DormerE: return QLatin1String("DormerE");
-    case DormerS: return QLatin1String("DormerS");
+    case DormerW: return QStringLiteral("DormerW");
+    case DormerN: return QStringLiteral("DormerN");
+    case DormerE: return QStringLiteral("DormerE");
+    case DormerS: return QStringLiteral("DormerS");
 
-    case FlatTop: return QLatin1String("FlatTop");
+    case FlatTop: return QStringLiteral("FlatTop");
 
-    case ShallowSlopeW: return QLatin1String("ShallowSlopeW");
-    case ShallowSlopeE: return QLatin1String("ShallowSlopeE");
-    case ShallowSlopeN: return QLatin1String("ShallowSlopeN");
-    case ShallowSlopeS: return QLatin1String("ShallowSlopeS");
-    case ShallowPeakWE: return QLatin1String("ShallowPeakWE");
-    case ShallowPeakNS: return QLatin1String("ShallowPeakNS");
+    case ShallowSlopeW: return QStringLiteral("ShallowSlopeW");
+    case ShallowSlopeE: return QStringLiteral("ShallowSlopeE");
+    case ShallowSlopeN: return QStringLiteral("ShallowSlopeN");
+    case ShallowSlopeS: return QStringLiteral("ShallowSlopeS");
+    case ShallowPeakWE: return QStringLiteral("ShallowPeakWE");
+    case ShallowPeakNS: return QStringLiteral("ShallowPeakNS");
 
-    case CornerInnerSW: return QLatin1String("CornerInnerSW");
-    case CornerInnerNW: return QLatin1String("CornerInnerNW");
-    case CornerInnerNE: return QLatin1String("CornerInnerNE");
-    case CornerInnerSE: return QLatin1String("CornerInnerSE");
+    case Slope30W: return QStringLiteral("Slope30W");
+    case Slope30N: return QStringLiteral("Slope30N");
+    case Slope30E: return QStringLiteral("Slope30E");
+    case Slope30S: return QStringLiteral("Slope30S");
+    case Peak30WE: return QStringLiteral("Peak30WE");
+    case Peak30NS: return QStringLiteral("Peak30NS");
+    case Peak30Quad: return QStringLiteral("Peak30Quad");
 
-    case CornerOuterSW: return QLatin1String("CornerOuterSW");
-    case CornerOuterNW: return QLatin1String("CornerOuterNW");
-    case CornerOuterNE: return QLatin1String("CornerOuterNE");
-    case CornerOuterSE: return QLatin1String("CornerOuterSE");
+    case Dormer30W: return QStringLiteral("Dormer30W");
+    case Dormer30N: return QStringLiteral("Dormer30N");
+    case Dormer30E: return QStringLiteral("Dormer30E");
+    case Dormer30S: return QStringLiteral("Dormer30S");
+
+    case CornerInnerSW: return QStringLiteral("CornerInnerSW");
+    case CornerInnerNW: return QStringLiteral("CornerInnerNW");
+    case CornerInnerNE: return QStringLiteral("CornerInnerNE");
+    case CornerInnerSE: return QStringLiteral("CornerInnerSE");
+
+    case CornerOuterSW: return QStringLiteral("CornerOuterSW");
+    case CornerOuterNW: return QStringLiteral("CornerOuterNW");
+    case CornerOuterNE: return QStringLiteral("CornerOuterNE");
+    case CornerOuterSE: return QStringLiteral("CornerOuterSE");
+
+    case CornerSlope30InnerSW: return QStringLiteral("CornerSlope30InnerSW");
+    case CornerSlope30InnerNW: return QStringLiteral("CornerSlope30InnerNW");
+    case CornerSlope30InnerNE: return QStringLiteral("CornerSlope30InnerNE");
+    case CornerSlope30InnerSE: return QStringLiteral("CornerSlope30InnerSE");
+
+    case CornerSlope30OuterSW: return QStringLiteral("CornerSlope30OuterSW");
+    case CornerSlope30OuterNW: return QStringLiteral("CornerSlope30OuterNW");
+    case CornerSlope30OuterNE: return QStringLiteral("CornerSlope30OuterNE");
+    case CornerSlope30OuterSE: return QStringLiteral("CornerSlope30OuterSE");
+
     default:
         break;
     }
 
-    return QLatin1String("Invalid");
+    return QStringLiteral("Invalid");
 }
 
 RoofObject::RoofType RoofObject::typeFromString(const QString &s)
 {
-    if (s == QLatin1String("SlopeW")) return SlopeW;
-    if (s == QLatin1String("SlopeN")) return SlopeN;
-    if (s == QLatin1String("SlopeE")) return SlopeE;
-    if (s == QLatin1String("SlopeS")) return SlopeS;
+    if (s == QStringLiteral("SlopeW")) return SlopeW;
+    if (s == QStringLiteral("SlopeN")) return SlopeN;
+    if (s == QStringLiteral("SlopeE")) return SlopeE;
+    if (s == QStringLiteral("SlopeS")) return SlopeS;
 
-    if (s == QLatin1String("PeakWE")) return PeakWE;
-    if (s == QLatin1String("PeakNS")) return PeakNS;
+    if (s == QStringLiteral("PeakWE")) return PeakWE;
+    if (s == QStringLiteral("PeakNS")) return PeakNS;
 
-    if (s == QLatin1String("DormerW")) return DormerW;
-    if (s == QLatin1String("DormerN")) return DormerN;
-    if (s == QLatin1String("DormerE")) return DormerE;
-    if (s == QLatin1String("DormerS")) return DormerS;
+    if (s == QStringLiteral("DormerW")) return DormerW;
+    if (s == QStringLiteral("DormerN")) return DormerN;
+    if (s == QStringLiteral("DormerE")) return DormerE;
+    if (s == QStringLiteral("DormerS")) return DormerS;
 
-    if (s == QLatin1String("FlatTop")) return FlatTop;
+    if (s == QStringLiteral("FlatTop")) return FlatTop;
 
-    if (s == QLatin1String("ShallowSlopeW")) return ShallowSlopeW;
-    if (s == QLatin1String("ShallowSlopeN")) return ShallowSlopeN;
-    if (s == QLatin1String("ShallowSlopeE")) return ShallowSlopeE;
-    if (s == QLatin1String("ShallowSlopeS")) return ShallowSlopeS;
+    if (s == QStringLiteral("ShallowSlopeW")) return ShallowSlopeW;
+    if (s == QStringLiteral("ShallowSlopeN")) return ShallowSlopeN;
+    if (s == QStringLiteral("ShallowSlopeE")) return ShallowSlopeE;
+    if (s == QStringLiteral("ShallowSlopeS")) return ShallowSlopeS;
 
-    if (s == QLatin1String("ShallowPeakWE")) return ShallowPeakWE;
-    if (s == QLatin1String("ShallowPeakNS")) return ShallowPeakNS;
+    if (s == QStringLiteral("ShallowPeakWE")) return ShallowPeakWE;
+    if (s == QStringLiteral("ShallowPeakNS")) return ShallowPeakNS;
 
-    if (s == QLatin1String("CornerInnerSW")) return CornerInnerSW;
-    if (s == QLatin1String("CornerInnerNW")) return CornerInnerNW;
-    if (s == QLatin1String("CornerInnerNE")) return CornerInnerNE;
-    if (s == QLatin1String("CornerInnerSE")) return CornerInnerSE;
+    if (s == QStringLiteral("Slope30W")) return Slope30W;
+    if (s == QStringLiteral("Slope30N")) return Slope30N;
+    if (s == QStringLiteral("Slope30E")) return Slope30E;
+    if (s == QStringLiteral("Slope30S")) return Slope30S;
+    if (s == QStringLiteral("Peak30WE")) return Peak30WE;
+    if (s == QStringLiteral("Peak30NS")) return Peak30NS;
+    if (s == QStringLiteral("Peak30Quad")) return Peak30Quad;
 
-    if (s == QLatin1String("CornerOuterSW")) return CornerOuterSW;
-    if (s == QLatin1String("CornerOuterNW")) return CornerOuterNW;
-    if (s == QLatin1String("CornerOuterNE")) return CornerOuterNE;
-    if (s == QLatin1String("CornerOuterSE")) return CornerOuterSE;
+    if (s == QStringLiteral("Dormer30W")) return Dormer30W;
+    if (s == QStringLiteral("Dormer30N")) return Dormer30N;
+    if (s == QStringLiteral("Dormer30E")) return Dormer30E;
+    if (s == QStringLiteral("Dormer30S")) return Dormer30S;
+
+    if (s == QStringLiteral("CornerInnerSW")) return CornerInnerSW;
+    if (s == QStringLiteral("CornerInnerNW")) return CornerInnerNW;
+    if (s == QStringLiteral("CornerInnerNE")) return CornerInnerNE;
+    if (s == QStringLiteral("CornerInnerSE")) return CornerInnerSE;
+
+    if (s == QStringLiteral("CornerOuterSW")) return CornerOuterSW;
+    if (s == QStringLiteral("CornerOuterNW")) return CornerOuterNW;
+    if (s == QStringLiteral("CornerOuterNE")) return CornerOuterNE;
+    if (s == QStringLiteral("CornerOuterSE")) return CornerOuterSE;
+
+    if (s == QStringLiteral("CornerSlope30InnerSW")) return CornerSlope30InnerSW;
+    if (s == QStringLiteral("CornerSlope30InnerNW")) return CornerSlope30InnerNW;
+    if (s == QStringLiteral("CornerSlope30InnerNE")) return CornerSlope30InnerNE;
+    if (s == QStringLiteral("CornerSlope30InnerSE")) return CornerSlope30InnerSE;
+
+    if (s == QStringLiteral("CornerSlope30OuterSW")) return CornerSlope30OuterSW;
+    if (s == QStringLiteral("CornerSlope30OuterNW")) return CornerSlope30OuterNW;
+    if (s == QStringLiteral("CornerSlope30OuterNE")) return CornerSlope30OuterNE;
+    if (s == QStringLiteral("CornerSlope30OuterSE")) return CornerSlope30OuterSE;
 
     return InvalidType;
 }
@@ -2362,31 +3947,31 @@ RoofObject::RoofType RoofObject::typeFromString(const QString &s)
 QString RoofObject::depthToString(RoofObject::RoofDepth depth)
 {
     switch (depth) {
-    case Zero: return QLatin1String("Zero");
-    case Point5: return QLatin1String("Point5");
-    case One: return QLatin1String("One");
-    case OnePoint5: return QLatin1String("OnePoint5");
-    case Two: return QLatin1String("Two");
-    case TwoPoint5: return QLatin1String("TwoPoint5");
-    case Three: return QLatin1String("Three");
+    case Zero: return QStringLiteral("Zero");
+    case Point5: return QStringLiteral("Point5");
+    case One: return QStringLiteral("One");
+    case OnePoint5: return QStringLiteral("OnePoint5");
+    case Two: return QStringLiteral("Two");
+    case TwoPoint5: return QStringLiteral("TwoPoint5");
+    case Three: return QStringLiteral("Three");
     default:
         break;
     }
 
     qFatal("unhandled roof object depth");
 
-    return QLatin1String("Invalid");
+    return QStringLiteral("Invalid");
 }
 
 RoofObject::RoofDepth RoofObject::depthFromString(const QString &s)
 {
-    if (s == QLatin1String("Zero")) return Zero;
-    if (s == QLatin1String("Point5")) return Point5;
-    if (s == QLatin1String("One")) return One;
-    if (s == QLatin1String("OnePoint5")) return OnePoint5;
-    if (s == QLatin1String("Two")) return Two;
-    if (s == QLatin1String("TwoPoint5")) return OnePoint5;
-    if (s == QLatin1String("Three")) return Three;
+    if (s == QStringLiteral("Zero")) return Zero;
+    if (s == QStringLiteral("Point5")) return Point5;
+    if (s == QStringLiteral("One")) return One;
+    if (s == QStringLiteral("OnePoint5")) return OnePoint5;
+    if (s == QStringLiteral("Two")) return Two;
+    if (s == QStringLiteral("TwoPoint5")) return OnePoint5;
+    if (s == QStringLiteral("Three")) return Three;
 
     return InvalidDepth;
 }
@@ -2510,3 +4095,44 @@ QPolygonF Window::calcShape() const
 }
 
 /////
+
+bool BasementAccess::fromString(const QString &value)
+{
+    QStringList ss = value.split(QLatin1Char(' '), Qt::SkipEmptyParts);
+    if (ss.length() == 3) {
+        bool ok;
+        mX = ss[0].toInt(&ok);
+        if (ok == false) {
+            return false;
+        }
+        mY = ss[1].toInt(&ok);
+        if (ok == false) {
+            return false;
+        }
+        QString direction = ss[2];
+        if (direction == QStringLiteral("N")) {
+            mDirection = BuildingObject::Direction::N;
+        } else if (direction == QStringLiteral("S")) {
+            mDirection = BuildingObject::Direction::S;
+        } else if (direction == QStringLiteral("W")) {
+            mDirection = BuildingObject::Direction::W;
+        } else if (direction == QStringLiteral("E")) {
+            mDirection = BuildingObject::Direction::E;
+        } else {
+            return false;
+        }
+        return true;
+    }
+    return false;
+}
+
+QString BasementAccess::toString() const
+{
+    return QStringLiteral("%1 %2 %3").arg(mX).arg(mY).arg(dirString());
+}
+
+QString BasementAccess::dirString() const
+{
+    static const char *s[] = { "N", "S", "E", "W", "Invalid" };
+    return QLatin1String(s[mDirection]);
+}

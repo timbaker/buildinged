@@ -47,6 +47,7 @@ class Tile;
 class Tileset;
 class ObjectGroup;
 #ifdef ZOMBOID
+class MapLevel;
 class ZTileLayerGroup;
 #endif
 
@@ -149,6 +150,7 @@ public:
     QStringList tileChoices;
     QString targetLayer;
     QRgb condition;
+    bool obsolete = false;
 
     BmpRule(const BmpRule *other) :
         label(other->label),
@@ -156,19 +158,20 @@ public:
         color(other->color),
         tileChoices(other->tileChoices),
         targetLayer(other->targetLayer),
-        condition(other->condition)
+        condition(other->condition),
+        obsolete(other->obsolete)
     {}
     BmpRule(const QString &label, int bitmapIndex, QRgb col,
-            const QStringList &tiles, const QString &layer, QRgb condition) :
+            const QStringList &tiles, const QString &layer, QRgb condition,
+            bool obsolete) :
         label(label),
         bitmapIndex(bitmapIndex),
         color(col),
         tileChoices(tiles),
         targetLayer(layer),
-        condition(condition)
+        condition(condition),
+        obsolete(obsolete)
     {}
-    BmpRule(const QString &label, int bitmapIndex, QRgb col, QString tile,
-            QString layer, QRgb condition);
 };
 
 class TILEDSHARED_EXPORT BmpBlend
@@ -365,11 +368,22 @@ public:
      */
     QMargins drawMargins() const { return mDrawMargins; }
 
+    void addMapLevel(MapLevel *mapLevel);
+
+    MapLevel *takeMapLevel(int level);
+
+    const QList<MapLevel*> mapLevels() const { return mLevels; }
+
+    MapLevel *mapLevelForZ(int z) const;
+
+    MapLevel *minMapLevel() const;
+
+    MapLevel *maxMapLevel() const;
+
     /**
      * Returns the number of layers of this map.
      */
-    int layerCount() const
-    { return mLayers.size(); }
+    int layerCount() const;
 
     /**
      * Convenience function that returns the number of layers of this map that
@@ -389,14 +403,13 @@ public:
     /**
      * Returns the layer at the specified index.
      */
-    Layer *layerAt(int index) const
-    { return mLayers.at(index); }
+    Layer *layerAt(int index) const;
 
     /**
      * Returns the list of layers of this map. This is useful when you want to
      * use foreach.
      */
-    const QList<Layer*> &layers() const { return mLayers; }
+    QList<Layer *> layers() const;
 
     QList<Layer*> layers(Layer::Type type) const;
     QList<ObjectGroup*> objectGroups() const;
@@ -488,12 +501,6 @@ public:
 #endif
 
 #ifdef ZOMBOID
-    void addTileLayerGroup(ZTileLayerGroup *tileLayerGroup);
-    const QList<ZTileLayerGroup*> tileLayerGroups() const { return mTileLayerGroups; }
-    int tileLayerGroupCount() const { return mTileLayerGroups.size(); }
-#endif
-
-#ifdef ZOMBOID
     MapBmp &rbmp(int index) { return index ? mBmpVeg : mBmpMain; }
     MapBmp bmp(int index) const { return index ? mBmpVeg : mBmpMain; }
 
@@ -523,6 +530,7 @@ public:
     static Map *fromLayer(Layer *layer);
 
 private:
+    friend class MapLevel;
     void adoptLayer(Layer *layer);
 
     Orientation mOrientation;
@@ -531,11 +539,10 @@ private:
     int mTileWidth;
     int mTileHeight;
     QMargins mDrawMargins;
-    QList<Layer*> mLayers;
+    QList<MapLevel*> mLevels;
     QList<Tileset*> mTilesets;
 #ifdef ZOMBOID
     QPoint mCellsPerLevel;
-    QList<ZTileLayerGroup*> mTileLayerGroups;
     QMap<Tileset*,int> mUsedTilesets;
     MapBmp mBmpMain;
     MapBmp mBmpVeg;

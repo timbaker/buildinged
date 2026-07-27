@@ -54,9 +54,13 @@ public:
     ~TilesetImageCache();
     Tileset *addTileset(Tileset *ts);
     Tileset *findMatch(Tileset *ts, const QString &imageSource, const QString &imageSource2x);
-    QList<Tileset*> mTilesets;
-};
+    void invalidateLookupTables();
+    void checkLookupTables();
 
+    QList<Tileset*> mTilesets;
+    QMultiMap<QString,Tileset*> mTilesetByImageSource;
+    QMultiMap<QString,Tileset*> mTilesetByImageSource2x;
+};
 #endif
 
 /**
@@ -291,6 +295,13 @@ private:
     QString mImageSource2x;
 #endif
 };
+
+#ifdef ZOMBOID
+extern TILEDSHARED_EXPORT QSize getZomboidTilesetSize1x(const QString &tilesetName);
+extern TILEDSHARED_EXPORT QPoint getZomboidTileOffset(const QString &tilesetName);
+extern TILEDSHARED_EXPORT void setZomboidTileOffset(Tileset *tileset);
+extern TILEDSHARED_EXPORT void setZomboidTileOffset(Tileset *tileset, const QString &tilesetName);
+#endif
 
 } // namespace Tiled
 

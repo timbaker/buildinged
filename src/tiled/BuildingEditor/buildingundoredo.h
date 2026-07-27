@@ -18,7 +18,10 @@
 #ifndef BUILDINGUNDOREDO_H
 #define BUILDINGUNDOREDO_H
 
+#include "buildingobjects.h"
+#include "furnituregroups.h"
 #include "properties.h"
+#include "propertiesgrid.h"
 
 #include <QMap>
 #include <QRectF>
@@ -29,7 +32,6 @@
 namespace BuildingEditor {
 
 class Building;
-class BuildingObject;
 class BuildingDocument;
 class BuildingFloor;
 class BuildingTile;
@@ -50,7 +52,8 @@ enum {
     UndoCmd_ChangeEWall = 1002,
     UndoCmd_ChangeWallForRoom = 1003,
     UndoCmd_ChangeFloorForRoom = 1004,
-    UndoCmd_ChangeObjectTile = 1005
+    UndoCmd_ChangeObjectTile = 1005,
+    UndoCmd_ChangeRoom = 1006,
 };
 
 class ChangeRoomAtPosition : public QUndoCommand
@@ -193,6 +196,22 @@ private:
     QPoint mPos;
 };
 
+class RotateFurniture : public QUndoCommand
+{
+public:
+    RotateFurniture(BuildingDocument *doc, FurnitureObject *object, FurnitureTile::FurnitureOrientation orient);
+
+    void undo() { swap(); }
+    void redo() { swap(); }
+
+private:
+    void swap();
+
+    BuildingDocument *mDocument;
+    FurnitureObject *mObject;
+    FurnitureTile::FurnitureOrientation mOrient;
+};
+
 class ChangeObjectTile : public QUndoCommand
 {
 public:
@@ -267,16 +286,29 @@ private:
 class ChangeRoom : public QUndoCommand
 {
 public:
-    ChangeRoom(BuildingDocument *doc, Room *room, const Room *data);
+    enum struct Change
+    {
+        Name,
+        InternalName,
+        Color,
+        Tile
+    };
+
+    ChangeRoom(BuildingDocument *doc, Room *room, const Room *data, Change change, int tileINdex);
     ~ChangeRoom();
 
-    void undo() { swap(); }
-    void redo() { swap(); }
+    int id() const override;
+    bool mergeWith(const QUndoCommand *other) override;
+
+    void undo() override { swap(); }
+    void redo() override { swap(); }
 
 private:
     void swap();
 
     BuildingDocument *mDocument;
+    Change mChange;
+    int mTileIndex;
     Room *mRoom;
     Room *mData;
 };
@@ -350,7 +382,7 @@ private:
 class ResizeBuilding : public QUndoCommand
 {
 public:
-    ResizeBuilding(BuildingDocument *doc, const QSize &newSize);
+    ResizeBuilding(BuildingDocument *doc, const QPoint& offset, const QSize &newSize);
 
     void undo() { swap(); }
     void redo() { swap(); }
@@ -359,6 +391,7 @@ private:
     void swap();
 
     BuildingDocument *mDocument;
+    QPoint mOffset;
     QSize mSize;
 };
 
@@ -410,6 +443,7 @@ private:
     QSize mSize;
     QVector<QVector<Room*> > mGrid;
     QMap<QString,FloorTileGrid*> mGrime;
+    Tiled::PropertiesGrid *mSquarePropertiesGrid;
 };
 
 class InsertFloor : public QUndoCommand
@@ -462,7 +496,6 @@ private:
     BuildingDocument *mDocument;
     int mOldIndex;
     int mNewIndex;
-    BuildingFloor *mFloor;
 };
 
 class EmitResizeBuilding : public QUndoCommand
@@ -639,6 +672,39 @@ private:
 
     BuildingDocument *mDocument;
     Tiled::Properties mProperties;
+};
+
+class ChangeSquareProperties : public QUndoCommand
+{
+public:
+    ChangeSquareProperties(BuildingDocument *doc, int level, const QRegion &selection, Tiled::PropertiesGrid *attributes);
+    ~ChangeSquareProperties();
+
+    void undo() override { swap(); }
+    void redo() override { swap(); }
+
+private:
+    void swap();
+
+    BuildingDocument *mDocument;
+    int mLevel;
+    QRegion mSelection;
+    Tiled::PropertiesGrid *mAttributes;
+};
+
+class SetBasementAccess : public QUndoCommand
+{
+public:
+    SetBasementAccess(BuildingDocument *doc, const BasementAccess &ba);
+
+    void undo() override { swap(); }
+    void redo() override { swap(); }
+
+private:
+    void swap();
+
+    BuildingDocument *mDocument;
+    BasementAccess mBasementAccess;
 };
 
 } // namespace BuildingEditor

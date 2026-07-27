@@ -324,6 +324,15 @@ QPoint BuildingDocument::moveObject(BuildingObject *object, const QPoint &pos)
     return old;
 }
 
+FurnitureTile::FurnitureOrientation BuildingDocument::rotateFurniture(FurnitureObject *object, FurnitureTile::FurnitureOrientation orient)
+{
+    FurnitureTile::FurnitureOrientation old = object->furnitureTile()->orient();
+    FurnitureTiles *tiles = object->furnitureTile()->owner();
+    object->setFurnitureTile(tiles->tile(orient));
+    emit objectTileChanged(object);
+    return old;
+}
+
 BuildingTileEntry *BuildingDocument::changeObjectTile(BuildingObject *object,
                                                       BuildingTileEntry *tile,
                                                       int alternate)
@@ -416,20 +425,22 @@ FloorTileGrid *BuildingDocument::swapFloorTiles(BuildingFloor *floor,
     return old;
 }
 
-QSize BuildingDocument::resizeBuilding(const QSize &newSize)
+QSize BuildingDocument::resizeBuilding(const QPoint &offset, const QSize &newSize)
 {
     QSize old = building()->size();
-    building()->resize(newSize);
+    building()->resize(offset, newSize);
     return old;
 }
 
 QVector<QVector<Room *> > BuildingDocument::resizeFloor(BuildingFloor *floor,
                                                         const QVector<QVector<Room *> > &grid,
-                                                        QMap<QString,FloorTileGrid*> &grime)
+                                                        QMap<QString,FloorTileGrid*> &grime,
+                                                        Tiled::PropertiesGrid **attributesGrid)
 {
     QVector<QVector<Room *> > old = floor->grid();
     floor->setGrid(grid);
     grime = floor->setGrime(grime);
+    *attributesGrid = floor->setSquarePropertiesGrid(*attributesGrid);
     return old;
 }
 
@@ -517,6 +528,23 @@ Tiled::Properties BuildingDocument::changeBuildingProperties(const Tiled::Proper
 {
     Tiled::Properties old = building()->properties();
     building()->properties() = properties;
+    return old;
+}
+
+Tiled::PropertiesGrid *BuildingDocument::changeSquareProperties(int level, const QRegion &selection, const Tiled::PropertiesGrid &propertiesGrid)
+{
+    BuildingFloor *floor = mBuilding->floor(level);
+    Tiled::PropertiesGrid *result = floor->squarePropertiesGrid()->clone();
+    floor->squarePropertiesGrid()->copy(propertiesGrid, selection);
+    emit squarePropertiesChanged(floor, selection);
+    return result;
+}
+
+BasementAccess BuildingDocument::setBasementAccess(const BasementAccess &ba)
+{
+    BasementAccess old = mBuilding->basementAccess();
+    mBuilding->setBasementAccess(ba);
+    emit basementAccessChanged();
     return old;
 }
 

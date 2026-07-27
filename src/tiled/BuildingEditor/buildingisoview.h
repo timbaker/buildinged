@@ -129,6 +129,31 @@ private:
     QRectF mBoundingRect;
 };
 
+class SquarePropertiesItem : public QObject, public QGraphicsItem
+{
+    Q_OBJECT
+    Q_INTERFACES(QGraphicsItem)
+public:
+    SquarePropertiesItem(BuildingIsoScene *scene);
+
+    QRectF boundingRect() const;
+
+    void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget);
+
+    BuildingDocument *document() const;
+
+private slots:
+    void currentLevelChanged();
+    void squarePropertiesChanged(BuildingEditor::BuildingFloor *floor, const QRegion &region);
+
+private:
+    void updateBoundingRect();
+
+private:
+    BuildingIsoScene *mScene;
+    QRectF mBoundingRect;
+};
+
 class IsoBuildingRenderer : public BuildingRenderer
 {
 public:
@@ -203,7 +228,12 @@ public:
     void setEditingTiles(bool editing);
     bool editingTiles() const { return mEditingTiles; }
 
+    void setEditingAttributes(bool editing);
+    bool editingAttributes() const { return mEditingAttributes; }
+
     void setCursorPosition(const QPoint &pos);
+
+    void calculateUnlitRoomMask();
 
 private:
     void BuildingToMap();
@@ -247,6 +277,8 @@ private slots:
     void highlightRoomChanged(bool highlight);
     void showLowerFloorsChanged(bool show);
 
+    void showOnlyFloorsChanged(bool show);
+
     void tilesetAdded(Tiled::Tileset *tileset);
     void tilesetAboutToBeRemoved(Tiled::Tileset *tileset);
     void tilesetRemoved(Tiled::Tileset *tileset);
@@ -254,6 +286,8 @@ private slots:
     void tilesetChanged(Tiled::Tileset *tileset);
 
     void currentToolChanged(BaseTool *tool);
+
+    void basementAccessChanged();
 
     // BuildingMap signals
     void aboutToRecreateLayers();
@@ -265,6 +299,7 @@ private:
     BuildingMap *mBuildingMap;
     TileModeGridItem *mGridItem;
     TileModeSelectionItem *mTileSelectionItem;
+    SquarePropertiesItem *mSquarePropertiesItem;
     QMap<int,CompositeLayerGroupItem*> mLayerGroupItems;
     bool mLoading;
     QGraphicsRectItem *mDarkRectangle;

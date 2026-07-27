@@ -53,7 +53,7 @@ LanguageManager::LanguageManager()
     mTranslationsDir = QCoreApplication::applicationDirPath();
 #ifdef Q_OS_WIN32
     mTranslationsDir += QLatin1String("/translations");
-#elif defined(Q_OS_MAC)
+#elif defined(Q_OS_MACOS)
     mTranslationsDir += QLatin1String("/../Translations");
 #else
 #ifdef ZOMBOID
@@ -83,8 +83,13 @@ void LanguageManager::installTranslators()
     if (language.isEmpty())
         language = QLocale::system().name();
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    const QString qtTranslationsDir =
+            QLibraryInfo::path(QLibraryInfo::TranslationsPath);
+#else
     const QString qtTranslationsDir =
             QLibraryInfo::location(QLibraryInfo::TranslationsPath);
+#endif
 
     if (mQtTranslator->load(QLatin1String("qt_") + language,
                             qtTranslationsDir)) {

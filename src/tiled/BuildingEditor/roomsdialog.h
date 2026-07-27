@@ -18,10 +18,14 @@
 #ifndef ROOMSDIALOG_H
 #define ROOMSDIALOG_H
 
+#include "BuildingEditor/buildingdocument.h"
 #include <QDialog>
 #include <QMap>
 
+#include <set>
+
 class QListWidgetItem;
+class QToolButton;
 
 namespace Ui {
 class RoomsDialog;
@@ -32,25 +36,37 @@ namespace BuildingEditor {
 class BuildingTileEntry;
 class Room;
 
+class RoomName
+{
+public:
+    QString label;
+    QString internalName;
+    QColor color;
+};
+
+extern bool compareQColors(const QColor& a, const QColor& b);
+
 class RoomsDialog : public QDialog
 {
     Q_OBJECT
     
 public:
-    explicit RoomsDialog(const QList<Room *> &rooms, QWidget *parent = 0);
+    explicit RoomsDialog(BuildingDocument *doc, Room *initialRoom = nullptr, QWidget *parent = nullptr);
     ~RoomsDialog();
 
-    const QList<Room*> rooms() const
-    { return mRooms; }
-
-    Room *originalRoom(Room *dialogRoom) const;
-
 private:
+    void readRoomNamesDotTxt(QList<RoomName> &roomNames);
+    void readRoomNamesDotTxt(const QString &fileName, QList<RoomName> &roomNames);
+    QListWidgetItem *itemFor(Room *room);
+    int findRoomNameByLabel(const QString &label) const;
+    int findRoomNameByInternalName(const QString &internalName) const;
     void setRoomsList();
     void synchUI();
     void setTilePixmap();
     BuildingEditor::BuildingTileEntry *selectedTile();
     QRgb pickColorForNewRoom();
+    void saveSettings();
+    void readSettings();
 
 private slots:
     void roomSelectionChanged();
@@ -63,16 +79,33 @@ private slots:
     void nameEdited(const QString &name);
     void internalNameEdited(const QString &name);
     void colorChanged(const QColor &color);
+    void randomiseColor();
     void tileSelectionChanged();
+    void clearTile();
+    void randomTile();
     void chooseTile();
+
+    void roomAdded(BuildingEditor::Room *room);
+    void roomRemoved(BuildingEditor::Room *room);
+    void roomChanged(BuildingEditor::Room *room);
+    void roomsReordered();
+
+    void undoTextChanged(const QString &text);
+    void redoTextChanged(const QString &text);
+
+    void accept() override;
+    void reject() override;
 
 private:
     Ui::RoomsDialog *ui;
-    QList<Room*> mRooms;
-    QMap<Room*,Room*> mRoomsMap;
+    BuildingDocument *mDocument;
     Room *mRoom;
     QListWidgetItem *mRoomItem;
     int mTileRow;
+    std::set<QColor, decltype(&compareQColors)> mRoomColorSet;
+    QList<RoomName> mRoomNames;
+    QToolButton *mUndoButton;
+    QToolButton *mRedoButton;
 };
 
 } // namespace BuildingEditor
