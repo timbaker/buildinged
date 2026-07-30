@@ -32,6 +32,7 @@
 #ifdef ZOMBOID
 #include <QApplication>
 #include <QDir>
+#include <QTableView>
 #include <QTextStream>
 #endif
 #include <QDesktopServices>
@@ -98,7 +99,14 @@ Preferences::Preferences()
                                                QColor(Qt::darkGray).name()).toString());
     mShowAdjacentMaps = mSettings->value(QLatin1String("ShowAdjacentMaps"), true).toBool();
     mHighlightRoomUnderPointer = mSettings->value(QLatin1String("HighlightRoomUnderPointer"), false).toBool();
-    mTilesetBackgroundColor = QColor(mSettings->value(QLatin1String("TilesetBackgroundColor"), QColor(Qt::white).name()).toString());
+
+    // This does *not* give the correct .qss theme color, only the system default.
+    // The .qss colors aren't applied until a widget is displayed for the first time.
+    QTableView tableView;
+    const QPalette& palette = qApp->palette(&tableView);
+    const QColor tableBgColor = palette.color(QPalette::ColorRole::Base);
+    mTilesetBackgroundColor = QColor(mSettings->value(QLatin1String("TilesetBackgroundColor"), tableBgColor.name()).toString());
+
     mShowCellBorder = mSettings->value(QLatin1String("ShowCelLBorder"), true).toBool();
     mTheme = mSettings->value(QLatin1String("Theme"), QLatin1String("Default")).toString();
 #endif

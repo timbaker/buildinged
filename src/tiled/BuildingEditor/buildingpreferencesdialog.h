@@ -42,6 +42,7 @@ private:
 public slots:
     void setUseOpenGL(bool useOpenGL);
     void themeChanged(int index);
+    void setDefaultTilesetBackground();
     void accept();
     
 private:

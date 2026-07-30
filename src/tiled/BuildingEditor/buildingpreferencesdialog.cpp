@@ -18,6 +18,7 @@
 #include "buildingpreferencesdialog.h"
 #include "ui_buildingpreferencesdialog.h"
 
+#include "buildingeditorwindow.h"
 #include "buildingpreferences.h"
 
 #include "preferences.h"
@@ -25,6 +26,7 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QSettings>
+#include <QTableView>
 
 using namespace BuildingEditor;
 using namespace Tiled::Internal;
@@ -39,6 +41,10 @@ BuildingPreferencesDialog::BuildingPreferencesDialog(QWidget *parent) :
     ui->configDirEdit->setText(QDir::toNativeSeparators(configPath));
 
     ui->gridColor->setColor(BuildingPreferences::instance()->gridColor());
+
+    ui->tilesetColorButton->setColor(Preferences::instance()->tilesetBackgroundColor());
+    connect(ui->tilesetColorButton, &ColorButton::colorChanged, Preferences::instance(), &Preferences::setTilesetBackgroundColor);
+    connect(ui->tilesetDefaultButton, &QAbstractButton::clicked, this, &BuildingPreferencesDialog::setDefaultTilesetBackground);
 
     mUseOpenGL = prefs()->useOpenGL();
     ui->useOpenGL->setChecked(mUseOpenGL);
@@ -70,6 +76,13 @@ void BuildingPreferencesDialog::themeChanged(int index)
 {
     QString text = ui->themeCombo->currentText();
     Preferences::instance()->setTheme(text);
+}
+
+void BuildingPreferencesDialog::setDefaultTilesetBackground()
+{
+    const QPalette& palette = ui->tableView->palette();
+    const QColor tableBgColor = palette.color(QPalette::Active, QPalette::Base);
+    Preferences::instance()->setTilesetBackgroundColor(tableBgColor);
 }
 
 void BuildingPreferencesDialog::accept()
