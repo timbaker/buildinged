@@ -280,7 +280,12 @@ macx {
 FORMS += resizedialog.ui \
     tilemetainfodialog.ui
 
-RESOURCES += tiled.qrc BuildingEditor/buildingeditor.qrc
+RESOURCES += tiled.qrc \
+    BuildingEditor/buildingeditor.qrc \
+    qdarkstyle/dark/darkstyle.qrc \
+    qdarkstyle/light/lightstyle.qrc \
+    breeze/breeze.qrc
+
 macx {
     TARGET = BuildingEd
     QMAKE_INFO_PLIST = Info.plist

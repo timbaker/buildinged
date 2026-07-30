@@ -41,6 +41,7 @@ private:
 
 public slots:
     void setUseOpenGL(bool useOpenGL);
+    void themeChanged(int index);
     void accept();
     
 private:

@@ -20,11 +20,14 @@
 
 #include "buildingpreferences.h"
 
+#include "preferences.h"
+
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QSettings>
 
 using namespace BuildingEditor;
+using namespace Tiled::Internal;
 
 BuildingPreferencesDialog::BuildingPreferencesDialog(QWidget *parent) :
     QDialog(parent),
@@ -43,6 +46,9 @@ BuildingPreferencesDialog::BuildingPreferencesDialog(QWidget *parent) :
 
     ui->isometric->setChecked(!prefs()->levelIsometric());
     ui->levelIsometric->setChecked(prefs()->levelIsometric());
+
+    ui->themeCombo->setCurrentText(Preferences::instance()->theme());
+    connect(ui->themeCombo, qOverload<int>(&QComboBox::currentIndexChanged), this, &BuildingPreferencesDialog::themeChanged);
 }
 
 BuildingPreferencesDialog::~BuildingPreferencesDialog()
@@ -58,6 +64,12 @@ BuildingPreferences *BuildingPreferencesDialog::prefs() const
 void BuildingPreferencesDialog::setUseOpenGL(bool useOpenGL)
 {
     mUseOpenGL = useOpenGL;
+}
+
+void BuildingPreferencesDialog::themeChanged(int index)
+{
+    QString text = ui->themeCombo->currentText();
+    Preferences::instance()->setTheme(text);
 }
 
 void BuildingPreferencesDialog::accept()

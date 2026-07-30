@@ -91,8 +91,8 @@
          <property name="title">
           <string>Interface</string>
          </property>
-         <layout class="QGridLayout" name="gridLayout" columnstretch="0,0">
-          <item row="0" column="0">
+         <layout class="QGridLayout" name="gridLayout" columnstretch="0">
+          <item row="3" column="0">
            <layout class="QHBoxLayout" name="horizontalLayout">
             <item>
              <widget class="QLabel" name="label_4">
@@ -119,12 +119,60 @@
             </item>
            </layout>
           </item>
-          <item row="4" column="0">
+          <item row="7" column="0">
            <widget class="QCheckBox" name="useOpenGL">
             <property name="text">
              <string>Use hardware-accelerated rendering (OpenGL)</string>
             </property>
            </widget>
+          </item>
+          <item row="0" column="0">
+           <layout class="QHBoxLayout" name="horizontalLayout_3">
+            <item>
+             <widget class="QLabel" name="themeLabel">
+              <property name="text">
+               <string>Theme:</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QComboBox" name="themeCombo">
+              <item>
+               <property name="text">
+                <string>Default</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>Breeze (Dark)</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>QDarkStyle (Dark)</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>QDarkStyle (Light)</string>
+               </property>
+              </item>
+             </widget>
+            </item>
+            <item>
+             <spacer name="horizontalSpacer_3">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
           </item>
          </layout>
         </widget>

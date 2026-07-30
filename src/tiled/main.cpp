@@ -317,6 +317,8 @@ int main(int argc, char *argv[])
     if (commandLine.disableOpenGL)
         Preferences::instance()->setUseOpenGL(false);
 
+    Preferences::instance()->applyTheme();
+
     if (a.isRunning()) {
         if (!commandLine.filesToOpen().isEmpty()) {
             foreach (const QString &fileName, commandLine.filesToOpen())
