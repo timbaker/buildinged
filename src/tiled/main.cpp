@@ -274,6 +274,30 @@ static bool InitConfigFiles()
     return true;
 }
 
+CommandLineHandler commandLine;
+
+static void runStartupTasks()
+{
+    if (!InitConfigFiles()) {
+        qApp->quit();
+        return;
+    }
+
+    BuildingTilesDialog::instance()->afterInitConfigFiles();
+
+    BuildingEditorWindow& w = *BuildingEditorWindow::instance();
+    w.Startup();
+
+    if (!commandLine.filesToOpen().isEmpty()) {
+        gStartupBlockRendering = false;
+        for (const QString &fileName : commandLine.filesToOpen()) {
+            w.openFile(fileName);
+        }
+    } else {
+        //        w.openLastFiles();
+    }
+}
+
 int main(int argc, char *argv[])
 {
 #if !defined(QT_NO_DEBUG) && defined(ZOMBOID) && defined(_MSC_VER)
@@ -308,8 +332,6 @@ int main(int argc, char *argv[])
     LanguageManager *languageManager = LanguageManager::instance();
     languageManager->installTranslators();
 
-    CommandLineHandler commandLine;
-
     if (!commandLine.parse(QCoreApplication::arguments()))
         return 0;
     if (commandLine.quit)
@@ -341,23 +363,10 @@ int main(int argc, char *argv[])
     w.connect(&a, SIGNAL(messageReceived(QString)), SLOT(openFile(QString)));
     w.readSettings();
 
-    if (!InitConfigFiles())
-        return 0;
-
-    BuildingTilesDialog::instance()->afterInitConfigFiles();
-
     QObject::connect(&a, SIGNAL(fileOpenRequest(QString)),
                      &w, SLOT(openFile(QString)));
 
-    w.Startup();
-
-    if (!commandLine.filesToOpen().isEmpty()) {
-        gStartupBlockRendering = false;
-        foreach (const QString &fileName, commandLine.filesToOpen())
-            w.openFile(fileName);
-    } else {
-//        w.openLastFiles();
-    }
+    QTimer::singleShot(10, &runStartupTasks);
 
     return a.exec();
 }

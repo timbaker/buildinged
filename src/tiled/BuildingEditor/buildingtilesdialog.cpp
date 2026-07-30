@@ -685,8 +685,10 @@ BuildingTilesDialog::BuildingTilesDialog(QWidget *parent) :
 //    ui->listWidget->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
     connect(ui->tilesetList, &QListWidget::itemSelectionChanged,
             this, &BuildingTilesDialog::tilesetSelectionChanged);
+#ifndef BUILDINGED_SA
     connect(TileMetaInfoMgr::instance(), &TileMetaInfoMgr::tilesetAdded,
             this, &BuildingTilesDialog::tilesetAdded);
+#endif
     connect(TileMetaInfoMgr::instance(), &TileMetaInfoMgr::tilesetAboutToBeRemoved,
             this, &BuildingTilesDialog::tilesetAboutToBeRemoved);
     connect(TileMetaInfoMgr::instance(), &TileMetaInfoMgr::tilesetRemoved,
@@ -938,6 +940,9 @@ bool BuildingTilesDialog::changes()
 // All this stuff is from the constructor
 void BuildingTilesDialog::afterInitConfigFiles()
 {
+    connect(TileMetaInfoMgr::instance(), &TileMetaInfoMgr::tilesetAdded,
+            this, &BuildingTilesDialog::tilesetAdded);
+
     setCategoryList();
     setTilesetList();
 
@@ -1925,8 +1930,7 @@ void BuildingTilesDialog::manageTilesets()
 }
 
 void BuildingTilesDialog::tilesetAdded(Tileset *tileset)
-{
-    setTilesetList();
+{    setTilesetList();
     int row = TileMetaInfoMgr::instance()->indexOf(tileset);
     ui->tilesetList->setCurrentRow(row);
 #if 0
