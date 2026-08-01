@@ -312,27 +312,27 @@ contains(CONFIG, static) {
 isEmpty(INSTALL_ONLY_BUILD) {
     win32:CONFIG_PREFIX = $${target.path}
     unix:CONFIG_PREFIX = $${target.path}/../share/tilezed/config
-    macx:CONFIG_PREFIX = $${target.path}/TileZed.app/Contents/Config
+    macx:CONFIG_PREFIX = $${target.path}/BuildingEd.app/Contents/Config
 
     win32:DOCS_PREFIX = $${target.path}/docs
     unix:DOCS_PREFIX = $${target.path}/../share/tilezed/docs
-    macx:DOCS_PREFIX = $${target.path}/TileZed.app/Contents/Docs
+    macx:DOCS_PREFIX = $${target.path}/BuildingEd.app/Contents/Docs
 
     win32:LUA_PREFIX = $${target.path}/lua
     unix:LUA_PREFIX = $${target.path}/../share/tilezed/lua
-    macx:LUA_PREFIX = $${target.path}/TileZed.app/Contents/Lua
+    macx:LUA_PREFIX = $${target.path}/BuildingEd.app/Contents/Lua
 } else {
     win32:CONFIG_PREFIX = $${top_builddir}
     unix:CONFIG_PREFIX = $${top_builddir}/share/tilezed/config
-    macx:CONFIG_PREFIX = $${top_builddir}/bin/TileZed.app/Contents/Config
+    macx:CONFIG_PREFIX = $${top_builddir}/bin/BuildingEd.app/Contents/Config
 
     win32:DOCS_PREFIX = $${top_builddir}/docs
     unix:DOCS_PREFIX = $${top_builddir}/share/tilezed/docs
-    macx:DOCS_PREFIX = $${top_builddir}/TileZed.app/Contents/Docs
+    macx:DOCS_PREFIX = $${top_builddir}/BuildingEd.app/Contents/Docs
 
     win32:LUA_PREFIX = $${top_builddir}/lua
     unix:LUA_PREFIX = $${top_builddir}/share/tilezed/lua
-    macx:LUA_PREFIX = $${top_builddir}/TileZed.app/Contents/Lua
+    macx:LUA_PREFIX = $${top_builddir}/BuildingEd.app/Contents/Lua
 }
 
 configTxtFiles.path = $${CONFIG_PREFIX}
