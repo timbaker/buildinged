@@ -4,7 +4,8 @@ sudo docker run --rm -v "$(pwd)/../..":/workspace qt-builder \
 sudo docker run --rm -v "$(pwd)/../..":/workspace qt-builder \
     bash -c "cd buildinged/dist && bash make-dist-linux64.sh"
 
-sudo chown -R $USER:$USER ../../dist-buildinged-docker
+sudo chown -R $USER:$USER ../../linuxdeploy-buildinged
+sudo chown -R $USER:$USER ../../dist-tiled-docker
 
 #sudo docker run --rm -v "$(pwd)/../..":/workspace qt-builder \
 #    bash -c "ls \$(qtpaths --plugin-directory)"

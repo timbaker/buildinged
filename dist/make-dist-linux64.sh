@@ -1,7 +1,7 @@
 SRC=$(pwd)/..
 BUILD=$SRC/../build-buildinged-docker
-APPIMAGE=$SRC/../linuxdeploy-tiled/BuildingEd-x86_64.AppImage
-DESTROOT=$SRC/../dist-buildinged-docker
+APPIMAGE=$SRC/../linuxdeploy-buildinged/BuildingEd-x86_64.AppImage
+DESTROOT=$SRC/../dist-tiled-docker
 DEST=$DESTROOT/BuildingEd
 
 mkdir $DESTROOT
