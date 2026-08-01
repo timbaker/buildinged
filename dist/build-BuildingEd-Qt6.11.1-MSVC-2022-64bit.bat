@@ -3,5 +3,5 @@ mkdir C:\Programming\buildinged-dist6.11.1
 cd C:\Programming\buildinged-dist6.11.1
 "C:\Programming\QtSDK2015\6.11.1\msvc2022_64\bin\qmake.exe" C:\Programming\buildinged\tiled.pro -r -spec win32-msvc "CONFIG+=release"
 "C:\Programming\QtSDK2015\Tools\QtCreator\bin\jom\jom.exe"
-"C:\Programming\TclTk\8.5.x\32bit-mingw\bin\tclsh85.exe" C:\Programming\buildinged\dist6.11.1.tcl 64bit
+"C:\Programming\TclTk\8.5.x\32bit-mingw\bin\tclsh85.exe" C:\Programming\buildinged\dist\dist6.11.1.tcl 64bit
 PAUSE

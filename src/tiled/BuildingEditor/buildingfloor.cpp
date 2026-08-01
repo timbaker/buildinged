@@ -22,9 +22,7 @@
 #include "buildingtemplates.h"
 #include "buildingtiles.h"
 #include "furnituregroups.h"
-#ifdef BUILDINGED_SA
 #include "preferences.h"
-#endif
 #include "roofhiding.h"
 
 #if defined(Q_OS_WIN) && (_MSC_VER >= 1600)

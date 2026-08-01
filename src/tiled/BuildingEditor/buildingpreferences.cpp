@@ -16,9 +16,7 @@
  */
 
 #include "buildingpreferences.h"
-#ifndef BUILDINGED
 #include "preferences.h"
-#endif
 
 #include <QDir>
 

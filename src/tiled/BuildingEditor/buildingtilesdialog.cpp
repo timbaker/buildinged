@@ -1930,7 +1930,8 @@ void BuildingTilesDialog::manageTilesets()
 }
 
 void BuildingTilesDialog::tilesetAdded(Tileset *tileset)
-{    setTilesetList();
+{
+    setTilesetList();
     int row = TileMetaInfoMgr::instance()->indexOf(tileset);
     ui->tilesetList->setCurrentRow(row);
 #if 0

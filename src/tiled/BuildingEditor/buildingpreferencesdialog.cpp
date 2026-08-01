@@ -18,7 +18,6 @@
 #include "buildingpreferencesdialog.h"
 #include "ui_buildingpreferencesdialog.h"
 
-#include "buildingeditorwindow.h"
 #include "buildingpreferences.h"
 
 #include "preferences.h"
@@ -43,7 +42,6 @@ BuildingPreferencesDialog::BuildingPreferencesDialog(QWidget *parent) :
     ui->gridColor->setColor(BuildingPreferences::instance()->gridColor());
 
     ui->tilesetColorButton->setColor(Preferences::instance()->tilesetBackgroundColor());
-    connect(ui->tilesetColorButton, &ColorButton::colorChanged, Preferences::instance(), &Preferences::setTilesetBackgroundColor);
     connect(ui->tilesetDefaultButton, &QAbstractButton::clicked, this, &BuildingPreferencesDialog::setDefaultTilesetBackground);
 
     mUseOpenGL = prefs()->useOpenGL();
@@ -74,20 +72,22 @@ void BuildingPreferencesDialog::setUseOpenGL(bool useOpenGL)
 
 void BuildingPreferencesDialog::themeChanged(int index)
 {
+    Q_UNUSED(index)
     QString text = ui->themeCombo->currentText();
     Preferences::instance()->setTheme(text);
 }
 
 void BuildingPreferencesDialog::setDefaultTilesetBackground()
 {
-    const QPalette& palette = ui->tableView->palette();
+    const QPalette& palette = ui->listView->palette();
     const QColor tableBgColor = palette.color(QPalette::Active, QPalette::Base);
-    Preferences::instance()->setTilesetBackgroundColor(tableBgColor);
+    ui->tilesetColorButton->setColor(tableBgColor);
 }
 
 void BuildingPreferencesDialog::accept()
 {
     prefs()->setGridColor(ui->gridColor->color());
+    Preferences::instance()->setTilesetBackgroundColor(ui->tilesetColorButton->color());
     prefs()->setUseOpenGL(mUseOpenGL);
     prefs()->setLevelIsometric(ui->levelIsometric->isChecked());
     QDialog::accept();
