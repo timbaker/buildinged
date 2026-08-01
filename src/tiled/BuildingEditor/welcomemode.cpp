@@ -26,11 +26,8 @@
 #include "buildingpreferences.h"
 #include "simplefile.h"
 
-#ifdef BUILDINGED_SA
 #include "mapmanager.h"
-#else
 #include "mainwindow.h"
-#endif
 #include "mapimagemanager.h"
 #include "preferences.h"
 

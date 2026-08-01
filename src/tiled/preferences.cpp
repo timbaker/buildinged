@@ -34,7 +34,7 @@
 #include <QDebug>
 #include <QDir>
 #include <QProcessEnvironment>
-#include <QTableView>
+#include <QListView>
 #include <QTextStream>
 #endif
 #include <QDesktopServices>
@@ -107,10 +107,10 @@ Preferences::Preferences()
 
     // This does *not* give the correct .qss theme color, only the system default.
     // The .qss colors aren't applied until a widget is displayed for the first time.
-    QTableView tableView;
-    const QPalette& palette = qApp->palette(&tableView);
-    const QColor tableBgColor = palette.color(QPalette::ColorRole::Base);
-    mTilesetBackgroundColor = QColor(mSettings->value(QLatin1String("TilesetBackgroundColor"), tableBgColor.name()).toString());
+    QListView listView;
+    const QPalette& palette = qApp->palette(&listView);
+    const QColor listBgColor = palette.color(QPalette::ColorRole::Base);
+    mTilesetBackgroundColor = QColor(mSettings->value(QLatin1String("TilesetBackgroundColor"), listBgColor.name()).toString());
 
     mShowCellBorder = mSettings->value(QLatin1String("ShowCelLBorder"), true).toBool();
     mTheme = mSettings->value(QLatin1String("Theme"), QLatin1String("Default")).toString();
