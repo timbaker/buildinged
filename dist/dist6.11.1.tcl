@@ -6,7 +6,7 @@ if {[llength [info commands console]]} {
 set QT_DIR C:/Programming/QtSDK2015/6.11.1/msvc2022_64
 set BIN C:/Programming/buildinged-dist6.11.1
 set SRC C:/Programming/buildinged
-set DEST {C:\Programming\ProjectZomboid\Tools\BuildingEd}
+set DEST {C:\Programming\ProjectZomboid\Tools\windows\BuildingEd}
 set SUFFIX "-64bit"
 set SUFFIX2 ""
 # C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Redist\MSVC\v143
