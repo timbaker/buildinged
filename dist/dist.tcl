@@ -3,13 +3,13 @@ if {[llength [info commands console]]} {
     update
 }
 
-set QT_DIR C:/Programming/QtSDK2015/5.7/msvc2013_64
-set BIN C:/Programming/BuildingEd/dist64
-set SRC C:/Programming/BuildingEd/BuildingEd
-set DEST {C:\Users\Tim\Desktop\ProjectZomboid\Tools\windows\BuildingEd}
+set QT_DIR C:/Programming/QtSDK2015/5.15.2/msvc2019_64
+set BIN C:/Programming/buildinged-dist64
+set SRC C:/Programming/buildinged
+set DEST {C:\Programming\ProjectZomboid\Tools\BuildingEd}
 set SUFFIX "-64bit"
 set SUFFIX2 ""
-set REDIST vcredist_x64.exe
+set REDIST vc_redist.x64.2015-2022.exe
 
 if {$argc > 0} {
     switch -- [lindex $argv 0] {
@@ -95,7 +95,7 @@ proc createFile {DEST name contents} {
 }
 
 puts ---Toplevel---
-copyFile {C:\Programming\TileZed} $DEST $REDIST
+copyFile {C:\Programming\TileZed} $DEST $REDIST vc_redist.x64.exe
 copyFile $BIN $DEST BuildingEd.exe
 copyFile $BIN $DEST tiled.dll
 copyFile $BIN $DEST zlib1.dll
