@@ -725,7 +725,7 @@ void TileMetaInfoMgr::loadTilesets(const QList<Tileset *> &tilesets, bool proces
                 // can't use canonicalFilePath since the 1x tileset may not exist
                 TilesetManager::instance()->loadTileset(ts, imageSource);
                 if (processEvents)
-                    qApp->processEvents(QEventLoop::ExcludeUserInputEvents);
+                    qApp->processEvents(QEventLoop::AllEvents);
                 continue;
             }
             QImageReader reader(imageSource);
@@ -734,7 +734,7 @@ void TileMetaInfoMgr::loadTilesets(const QList<Tileset *> &tilesets, bool proces
                 QFileInfo info(imageSource);
                 TilesetManager::instance()->loadTileset(ts, info.canonicalFilePath());
                 if (processEvents)
-                    qApp->processEvents(QEventLoop::ExcludeUserInputEvents);
+                    qApp->processEvents(QEventLoop::AllEvents);
             }
         }
     }
