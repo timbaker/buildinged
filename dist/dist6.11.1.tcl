@@ -38,6 +38,7 @@ proc copyFile {SOURCE DEST name {name2 ""}} {
     foreach var {BIN SRC QT_BINARY_DIR QT_PLUGINS_DIR QT_TRANSLATIONS_DIR} {
         if {[string match [set ::$var]* $src]} {
             set relative [string range $src [string length [set ::$var]] end]
+            break
         }
     }
     if {![file exists $dst] || ([file mtime $src] > [file mtime $dst]) || ([file size $src] != [file size $dst])} {
