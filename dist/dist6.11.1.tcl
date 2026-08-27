@@ -103,6 +103,7 @@ Plugins = plugins
 Translations = translations
 }
 
+copyFile $SRC $DEST RoomNames.txt
 copyFile $SRC $DEST Tilesets.txt
 
 puts ---Translations---
