@@ -92,6 +92,62 @@
           <string>Interface</string>
          </property>
          <layout class="QGridLayout" name="gridLayout" columnstretch="0">
+          <item row="4" column="0">
+           <layout class="QHBoxLayout" name="tilesetColorLayout">
+            <item>
+             <widget class="QLabel" name="label">
+              <property name="text">
+               <string>Tileset background:</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="Tiled::Internal::ColorButton" name="tilesetColorButton"/>
+            </item>
+            <item>
+             <widget class="QToolButton" name="tilesetDefaultButton">
+              <property name="text">
+               <string>Default</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QListView" name="listView">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>32</width>
+                <height>32</height>
+               </size>
+              </property>
+              <property name="layoutDirection">
+               <enum>Qt::LayoutDirection::LeftToRight</enum>
+              </property>
+              <property name="autoFillBackground">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="tilesetColorSpacer">
+              <property name="orientation">
+               <enum>Qt::Orientation::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </item>
           <item row="3" column="0">
            <layout class="QHBoxLayout" name="gridColorLayout">
             <item>
@@ -174,61 +230,16 @@
             </item>
            </layout>
           </item>
-          <item row="4" column="0">
-           <layout class="QHBoxLayout" name="tilesetColorLayout">
-            <item>
-             <widget class="QLabel" name="label">
-              <property name="text">
-               <string>Tileset background:</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="Tiled::Internal::ColorButton" name="tilesetColorButton"/>
-            </item>
-            <item>
-             <widget class="QToolButton" name="tilesetDefaultButton">
-              <property name="text">
-               <string>Default</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QListView" name="listView">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="maximumSize">
-               <size>
-                <width>32</width>
-                <height>32</height>
-               </size>
-              </property>
-              <property name="layoutDirection">
-               <enum>Qt::LayoutDirection::LeftToRight</enum>
-              </property>
-              <property name="autoFillBackground">
-               <bool>false</bool>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <spacer name="tilesetColorSpacer">
-              <property name="orientation">
-               <enum>Qt::Orientation::Horizontal</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>40</width>
-                <height>20</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
-           </layout>
+          <item row="8" column="0">
+           <widget class="QCheckBox" name="unknownRoomCheckbox">
+            <property name="text">
+             <string>Show warning icon for unknown room names</string>
+            </property>
+            <property name="icon">
+             <iconset resource="buildingeditor.qrc">
+              <normaloff>:/BuildingEditor/icons/caution-icon.png</normaloff>:/BuildingEditor/icons/caution-icon.png</iconset>
+            </property>
+           </widget>
           </item>
          </layout>
         </widget>
@@ -269,7 +280,9 @@
    <header location="global">colorbutton.h</header>
   </customwidget>
  </customwidgets>
- <resources/>
+ <resources>
+  <include location="buildingeditor.qrc"/>
+ </resources>
  <connections>
   <connection>
    <sender>buttonBox</sender>

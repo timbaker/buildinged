@@ -59,6 +59,7 @@ SOURCES += colorbutton.cpp \
     BuildingEditor/buildingkeyvaluesdialog.cpp \
     BuildingEditor/buildingtilesfile.cpp \
     BuildingEditor/exportbasementsdialog.cpp \
+    BuildingEditor/roomnamesfile.cpp \
     BuildingEditor/templatedocument.cpp \
     BuildingEditor/templateroomsdialog.cpp \
     BuildingEditor/templateundoredo.cpp \
@@ -107,6 +108,7 @@ HEADERS += colorbutton.h \
     BuildingEditor/buildingkeyvaluesdialog.h \
     BuildingEditor/buildingtilesfile.h \
     BuildingEditor/exportbasementsdialog.h \
+    BuildingEditor/roomnamesfile.h \
     BuildingEditor/templatedocument.h \
     BuildingEditor/templateroomsdialog.h \
     BuildingEditor/templateundoredo.h \
@@ -338,6 +340,7 @@ isEmpty(INSTALL_ONLY_BUILD) {
 configTxtFiles.path = $${CONFIG_PREFIX}
 configTxtFiles.files = \
     $${top_srcdir}/LuaTools.txt \
+    $${top_srcdir}/RoomNames.txt \
     $${top_srcdir}/TileProperties.txt \
     $${top_srcdir}/Tilesets.txt
 INSTALLS += configTxtFiles
